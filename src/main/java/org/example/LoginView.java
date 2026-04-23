@@ -28,6 +28,7 @@ public class LoginView extends VerticalLayout
 
         loginForm.addLoginListener(e ->
         {
+            //we can change this to use a real database but for now, we will stick to it
             if ("admin".equals(e.getUsername()) && "password123".equals(e.getPassword()))
             {
                 UserSession.setLoggedIn(true);
