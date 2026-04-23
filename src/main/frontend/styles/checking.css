@@ -9,7 +9,6 @@ vaadin-grid {
 }
 
 vaadin-grid::part(header-cell) {
-  /* Soft rose-gray background for the header */
   background: #fff5f6;
   color: #8a1528;
   font-weight: 600;
@@ -26,7 +25,6 @@ vaadin-grid::part(cell) {
   border-bottom: 1px solid #f7f1f2;
 }
 
-/* Hover state: Light red wash */
 vaadin-grid::part(row):hover {
   background: rgba(200, 16, 46, 0.04);
   transition: background 0.2s ease;

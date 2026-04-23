@@ -21,6 +21,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.theme.Theme;
 import org.example.Helper.*;
 import org.example.Initialiser.DataInitialiser;
 import org.example.LoginView;
@@ -233,7 +234,9 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             {
                 int selectedYears = event.getValue();
 
-                Notification.show("Années sélectionnées : " + selectedYears);
+                Notification warn = new Notification("Année sélectionnées: " + selectedYears, 3000);
+                warn.addThemeVariants(NotificationVariant.INFO);
+                warn.open();
 
                 grid.removeAllColumns();
 
