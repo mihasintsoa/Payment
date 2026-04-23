@@ -1,0 +1,53 @@
+/* Background for the whole view */
+.login-view {
+    background-color: #fcfcfd;
+    background-image: radial-gradient(circle at 20% 30%, rgba(200, 16, 46, 0.03) 0%, transparent 100%);
+}
+
+
+.login-title {
+    color: #8a1528;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    margin-bottom: 24px;
+}
+
+
+vaadin-login-form.red-theme-form [slot="submit"]
+{
+    background-color: #c8102e;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+vaadin-login-form.red-theme-form [slot="submit"]:hover
+{
+    background-color: #a00d25;
+}
+
+
+vaadin-login-form.red-theme-form vaadin-text-field,
+vaadin-login-form.red-theme-form vaadin-password-field {
+    --lumo-contrast-10pct: rgba(200, 16, 46, 0.1);
+    --vaadin-input-field-border-width: 1px;
+    --vaadin-input-field-border-color: #8e1b23;
+}
+
+
+vaadin-login-form.red-theme-form vaadin-text-field[focused]::part(input-field),
+vaadin-login-form.red-theme-form vaadin-password-field[focused]::part(input-field) {
+    --vaadin-input-field-border-width: 1px;
+    --vaadin-focus-ring-color: #c8102e;
+    box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.2);
+}
+
+
+vaadin-login-form-wrapper [part="error-message-title"]
+{
+    background-color: #fff5f6;
+    color: #c8102e;
+    border-radius: 8px;
+    padding: 10px;
+}
