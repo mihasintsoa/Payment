@@ -2,6 +2,7 @@ package org.example.Checking;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.combobox.ComboBox;
 
@@ -201,10 +202,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             grid.addColumn(StudentsPayment::getID).setHeader("id").setAutoWidth(true).setFlexGrow(1);
             grid.addColumn(StudentsPayment::getName).setHeader("Nom").setAutoWidth(true).setFlexGrow(1);
             grid.addColumn(StudentsPayment::getFirstName).setHeader("Prénom").setAutoWidth(true).setFlexGrow(1);
-            /*grid.addColumn(StudentsPayment::getPayementStatus)
-                    .setHeader("Statut paiement");*/
 
-
+            //add month column dynamically
             for (int i = 1; i <= currentMonth; i++)
             {
                 final int month = i;
@@ -229,7 +228,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 }).setHeader(moisNom + " " + startYear).setAutoWidth(true).setFlexGrow(1);
 
             }
-
+            //change the year shown based on the selected year
             yearSelect.addValueChangeListener(event ->
             {
                 int selectedYears = event.getValue();
@@ -379,9 +378,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 loadPaymentFromDB();
                 grid.getDataProvider().refreshAll();
 
-                Notification.show("Mises à jour enregistrées avec succès");
+                Notification notif = new Notification("Mises à jour enregistrées", 3000);
+                notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                notif.open();
+
             } catch (SQLException ex) {
-                Notification.show("Erreur lors de la validation : " + ex.getMessage());
+                Notification notif = new Notification("Erreur lors de la validation " + ex.getMessage(),
+                        3000);
+                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                notif.open();
             }
         });
 

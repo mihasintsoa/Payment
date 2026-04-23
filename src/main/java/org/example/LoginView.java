@@ -11,9 +11,11 @@ import org.example.Session.UserSession;
 @Route("")
 @PageTitle("Connexion")
 @CssImport("./styles/loginView.css")
-public class LoginView extends VerticalLayout {
+public class LoginView extends VerticalLayout
+{
 
-    public LoginView() {
+    public LoginView()
+    {
         addClassName("login-view");
 
         setAlignItems(Alignment.CENTER);
@@ -24,11 +26,14 @@ public class LoginView extends VerticalLayout {
         loginForm.addClassName("red-theme-form");
 
 
-        loginForm.addLoginListener(e -> {
-            if ("admin".equals(e.getUsername()) && "password123".equals(e.getPassword())) {
+        loginForm.addLoginListener(e ->
+        {
+            if ("admin".equals(e.getUsername()) && "password123".equals(e.getPassword()))
+            {
                 UserSession.setLoggedIn(true);
                 getUI().ifPresent(ui -> ui.navigate("checking"));
-            } else {
+            } else
+            {
                 loginForm.setError(true);
             }
         });

@@ -12,6 +12,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+/**
+ * This is used to charge the database from csv just in case it
+ * somehow got deleted or when we use H2 for development
+ *
+ *
+ * */
 @WebListener
 public class DataInitialiser implements ServletContextListener
 {
