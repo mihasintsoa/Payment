@@ -2,6 +2,7 @@ package org.example.Checking;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -39,13 +40,14 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.TextStyle;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.Locale;
-import java.util.Collections;
+import java.util.*;
+
+
+/**
+ * TODO
+ *  need Change the the DataProvider so we can build the sql request dynamically
+ * Remove this if that is finished
+ * */
 
 @Route("checking")
 @CssImport("./styles/checking.css")
@@ -55,10 +57,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     public List<StudentsPayment> studentsPaymentList;
 
     Map<Integer, Set<Integer>> allPayments ;
+    Map<String, String[]> mappingLevel;
 
     List<Integer> yearsList;
 
     Select<Integer> yearSelect;
+    MultiSelectComboBox<String> levelSelect;
 
 
     Grid<StudentsPayment> grid;
@@ -68,13 +72,19 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     int startYear;
 
     String[] filter = {""};
+    StringBuilder sql;
 
     PaymentService paymentService;
 
     TextField searchField ;
 
+    String[] selectableLevel;
+
+
     public Checking()
     {
+
+        List<Object> param = new ArrayList<>();
 
         setHeightFull();
 
@@ -88,12 +98,50 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         for (int i = startYear; i <= startYear; i++)
             yearsList.add(i);
 
+        HorizontalLayout hor = new HorizontalLayout();
+        hor.setAlignItems(Alignment.CENTER);
+        hor.setJustifyContentMode(JustifyContentMode.CENTER);
+        hor.setWidthFull();
+
         yearSelect = new Select<>();
         yearSelect.setPlaceholder("Choisir une année");
-
-
         yearSelect.setItems(yearsList);
         yearSelect.setValue(startYear);
+
+        selectableLevel = new String[]{
+                "All",
+                "L1",
+                "L2",
+                "L3",
+                "M1 INT",
+                "M1 MISA",
+                "M2"};
+
+        levelSelect = new MultiSelectComboBox<>();
+        levelSelect.setPlaceholder("Choisir le ou les niveaux");
+        levelSelect.setItems(selectableLevel);
+        levelSelect.setValue(selectableLevel[0]);
+
+        hor.add(searchField, levelSelect);
+
+        mappingLevel = Map.of(
+                "L1", new String[]{"L1, Informatique et Technologie"},
+                "L2", new String[]{"L2, Informatique et Technologie"},
+                "L3", new String[]{"L3", null},
+                "M1 INT", new String[]{"M1, Innovation et Technologie"},
+                "M1 MISA", new String[]{"M1, Mathematiques Informatique et Statistiques Appliquees"},
+                "M2", new String[]{"M2, Mathematiques Informatique et Statistiques Appliquees"}
+
+        );
+
+        sql = new StringBuilder(
+            """
+                SELECT u.id, u.name, u.firstname, u.level,
+                    p.paid_month, p.paid_year , p.payment_date, p.status
+                FROM users_full u
+                LEFT JOIN payment p ON u.id = p.student_id
+                WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
+            """);
 
 
         Map<Integer, Map<Integer, Boolean>> modifications = new HashMap<>();
@@ -126,6 +174,11 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         ) {
 
                             String f = "%" + filter[0].toLowerCase() + "%";
+
+                            param.add(f);
+                            param.add(f);
+
+                            Set<String> selected = levelSelect.getValue();
 
                             ps.setString(1, f);
                             ps.setString(2, f);
@@ -219,11 +272,29 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                     if (paid) cb.setEnabled(false);
 
-                    cb.addValueChangeListener( e ->
+                    cb.addValueChangeListener(e ->
                     {
-                        modifications
-                                .computeIfAbsent(sp.getID(), k -> new HashMap<>())
-                                .put(month, e.getValue());
+                        boolean newValue = e.getValue();
+
+                        boolean initialValue = allPayments
+                                .getOrDefault(sp.getID(), Collections.emptySet())
+                                .contains(month);
+
+                        if (newValue == initialValue)
+                        {
+                            if (modifications.containsKey(sp.getID()))
+                            {
+                                modifications.get(sp.getID()).remove(month);
+
+                                if (modifications.get(sp.getID()).isEmpty())
+                                    modifications.remove(sp.getID());
+                            }
+                        } else
+                        {
+                            modifications
+                                    .computeIfAbsent(sp.getID(), k -> new HashMap<>())
+                                    .put(month, newValue);
+                        }
                     });
                     return (cb);
                 }).setHeader(moisNom + " " + startYear).setAutoWidth(true).setFlexGrow(1);
@@ -258,10 +329,34 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                         if (paid) cb.setEnabled(false);
 
-                        cb.addValueChangeListener(e -> {
-                            modifications
-                                    .computeIfAbsent(sp.getID(), k -> new HashMap<>())
-                                    .put(finalMonth, e.getValue());
+
+                        /*
+                            if the value change from the initial_state (paid) we add the student_id
+                            and if it returns to the first state, we remove that student from modifications
+                         */
+                        cb.addValueChangeListener(e ->
+                        {
+                            boolean newValue = e.getValue();
+
+                            boolean initialValue = allPayments
+                                    .getOrDefault(sp.getID(), Collections.emptySet())
+                                    .contains(finalMonth);
+
+                            if (newValue == initialValue)
+                            {
+                                if (modifications.containsKey(sp.getID()))
+                                {
+                                    modifications.get(sp.getID()).remove(finalMonth);
+
+                                    if (modifications.get(sp.getID()).isEmpty())
+                                        modifications.remove(sp.getID());
+                                }
+                            } else
+                            {
+                                modifications
+                                        .computeIfAbsent(sp.getID(), k -> new HashMap<>())
+                                        .put(finalMonth, newValue);
+                            }
                         });
 
                         return cb;
@@ -291,15 +386,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             throw new RuntimeException(e);
         }
 
-        add(searchField);
+        add(hor);
         add(grid);
 
-        HorizontalLayout hor = new HorizontalLayout(validate(modifications, paymentService), yearSelect);
-        hor.setAlignItems(Alignment.CENTER);
-        hor.setJustifyContentMode(JustifyContentMode.CENTER);
-        hor.setWidthFull();
+        HorizontalLayout hor2 = new HorizontalLayout(validate(modifications, paymentService), yearSelect);
+        hor2.setAlignItems(Alignment.CENTER);
+        hor2.setJustifyContentMode(JustifyContentMode.CENTER);
+        hor2.setWidthFull();
 
-        add(hor);
+        add(hor2);
     }
 
     private Button validate(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
