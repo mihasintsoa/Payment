@@ -121,29 +121,18 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         levelSelect.setPlaceholder("Choisir le ou les niveaux");
         levelSelect.setItems(selectableLevel);
         levelSelect.setValue(selectableLevel[0]);
-
-        hor.add(searchField, levelSelect);
+        
 
         mappingLevel = Map.of(
-                "L1", new String[]{"L1, Informatique et Technologie"},
-                "L2", new String[]{"L2, Informatique et Technologie"},
+                "L1", new String[]{"L1", null},
+                "L2", new String[]{"L2", null},
                 "L3", new String[]{"L3", null},
                 "M1 INT", new String[]{"M1, Innovation et Technologie"},
                 "M1 MISA", new String[]{"M1, Mathematiques Informatique et Statistiques Appliquees"},
-                "M2", new String[]{"M2, Mathematiques Informatique et Statistiques Appliquees"}
+                "M2", new String[]{"M2", null}
 
         );
-
-        sql = new StringBuilder(
-            """
-                SELECT u.id, u.name, u.firstname, u.level,
-                    p.paid_month, p.paid_year , p.payment_date, p.status
-                FROM users_full u
-                LEFT JOIN payment p ON u.id = p.student_id
-                WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
-            """);
-
-
+        
         Map<Integer, Map<Integer, Boolean>> modifications = new HashMap<>();
 
         try
@@ -158,53 +147,75 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
 
-                    query -> {
+                    query ->
+                    {
+
+                        String f = "%" + filter[0].toLowerCase() + "%";
+                        
+                        Set<String> selected = levelSelect.getValue();
+                        List<String> dbLevels = new ArrayList<>();
+
+                        System.out.println(selected);
+
+                        if (!selected.contains("All"))
+                        {
+                            for (String lvl : selected)
+                            {
+                                String[] mapped = mappingLevel.get(lvl);
+                                
+                                if (mapped != null)
+                                {
+                                    for (String m : mapped)
+                                    {
+                                        if (m != null) 
+                                            dbLevels.add(m);
+                                    }
+                                }
+                            }
+                        }
+
+                        StringBuilder sql = getStringBuilder(dbLevels);
+
                         Map<Integer, StudentsPayment> map = new HashMap<>();
-                        try (
-                                PreparedStatement ps = con.prepareStatement(
-                                    """
-                                            SELECT u.id, u.name, u.firstname, u.level,
-                                                p.paid_month, p.paid_year , p.payment_date, p.status
-                                            FROM users_full u
-                                            LEFT JOIN payment p ON u.id = p.student_id
-                                            WHERE LOWER(u.name) like ? OR
-                                                  LOWER(u.firstname) like ?
-                                            LIMIT ? OFFSET ?
-                                """)
-                        ) {
 
-                            String f = "%" + filter[0].toLowerCase() + "%";
+                        try (PreparedStatement ps = con.prepareStatement(sql.toString()))
+                        {
 
-                            param.add(f);
-                            param.add(f);
+                            int index = 1;
 
-                            Set<String> selected = levelSelect.getValue();
+                            ps.setString(index++, f);
+                            ps.setString(index++, f);
 
-                            ps.setString(1, f);
-                            ps.setString(2, f);
-                            ps.setInt(3, query.getLimit());
-                            ps.setInt(4, query.getOffset());
+                            for (String lvl : dbLevels)
+                                ps.setString(index++, lvl);
+
+                            ps.setInt(index++, query.getLimit());
+                            ps.setInt(index++, query.getOffset());
 
                             ResultSet rs = ps.executeQuery();
-                            while (rs.next()) {
+
+                            while (rs.next())
+                            {
                                 int id = rs.getInt("id");
 
                                 StudentsPayment sp = map.computeIfAbsent(id, k ->
-                                        {
-                                            try {
-                                                return new StudentsPayment(new Students(
-                                                        id,
-                                                        rs.getString("name"),
-                                                        rs.getString("firstname"),
-                                                        rs.getString("level")
-                                                ));
-                                            } catch (SQLException e) {
-                                                throw new RuntimeException(e);
-                                            }
-                                        }
-                                );
+                                {
+                                    try
+                                    {
+                                        return new StudentsPayment(new Students(
+                                                id,
+                                                rs.getString("name"),
+                                                rs.getString("firstname"),
+                                                rs.getString("level")
+                                        ));
+                                    } catch (SQLException e)
+                                    {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
 
-                                if (rs.getDate("payment_date") != null) {
+                                if (rs.getDate("payment_date") != null)
+                                {
                                     sp.addPayment(new Payment(
                                             id,
                                             rs.getInt("paid_month"),
@@ -214,6 +225,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                                     ));
                                 }
                             }
+
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
@@ -222,32 +234,53 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         return studentsPaymentList.stream();
                     },
 
-                    query ->
-                    {
-                        try (PreparedStatement ps = con.prepareStatement(
-                                """
-                                        SELECT COUNT(*)
-                                        FROM users_full u
-                                        WHERE LOWER(u.name) LIKE ?
-                                           OR LOWER(u.firstname) LIKE ?
-                                           OR LOWER(u.inscription_number) LIKE ?
-                                """))
+                    query -> {
+
+                        String f = "%" + filter[0].toLowerCase() + "%";
+
+                        Set<String> selected = levelSelect.getValue();
+                        List<String> dbLevels = new ArrayList<>();
+
+                        if (!selected.contains("All"))
                         {
+                            for (String lvl : selected)
+                            {
+                                String[] mapped = mappingLevel.get(lvl);
 
-                            String f = "%" + filter[0].toLowerCase() + "%";
+                                if (mapped != null)
+                                {
+                                    for (String m : mapped)
+                                    {
+                                        if (m != null)
+                                            dbLevels.add(m);
 
-                            ps.setString(1, f);
-                            ps.setString(2, f);
-                            ps.setString(3, f);
+                                    }
+                                }
+                            }
+                        }
+
+                        StringBuilder countSql = getBuilder(dbLevels);
+
+                        try (PreparedStatement ps = con.prepareStatement(countSql.toString())) {
+
+                            int index = 1;
+
+                            ps.setString(index++, f);
+                            ps.setString(index++, f);
+                            ps.setString(index++, f);
+
+                            for (String lvl : dbLevels) {
+                                ps.setString(index++, lvl);
+                            }
 
                             ResultSet rs = ps.executeQuery();
                             if (rs.next()) return rs.getInt(1);
 
-                        } catch (SQLException e)
-                        {
+                        } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
-                        return (0);
+
+                        return 0;
                     }
             );
 
@@ -375,6 +408,10 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 grid.getDataProvider().refreshAll();
             });
 
+            levelSelect.addValueChangeListener(e -> {
+               grid.getDataProvider().refreshAll();
+            });
+
 
             grid.setDataProvider(provider);
 
@@ -386,6 +423,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             throw new RuntimeException(e);
         }
 
+        hor.add(searchField, levelSelect);
         add(hor);
         add(grid);
 
@@ -395,6 +433,72 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         hor2.setWidthFull();
 
         add(hor2);
+    }
+
+    private static StringBuilder getBuilder(List<String> dbLevels)
+    {
+        StringBuilder countSql = new StringBuilder(
+            """
+                SELECT COUNT(*)
+                FROM users_full u
+                WHERE (LOWER(u.name) LIKE ? 
+                    OR LOWER(u.firstname) LIKE ? 
+                    OR LOWER(u.inscription_number) LIKE ?)
+            """);
+
+        if (!dbLevels.isEmpty())
+        {
+            countSql.append(" AND u.level IN (");
+            for (int i = 0; i < dbLevels.size(); i++)
+            {
+                countSql.append("?");
+                if (i < dbLevels.size() - 1)
+                    countSql.append(", ");
+            }
+            countSql.append(")");
+        }
+        return (countSql);
+    }
+
+    private static StringBuilder getStringBuilder(List<String> selectedLevels)
+    {
+        StringBuilder sql = new StringBuilder(
+                """
+                SELECT u.id, u.name, u.firstname, u.level, u.parcours,
+                       p.paid_month, p.paid_year, p.payment_date, p.status
+                FROM users_full u
+                LEFT JOIN payment p ON u.id = p.student_id
+                WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
+                """
+        );
+
+        if (!selectedLevels.isEmpty() && !selectedLevels.contains("All")) {
+            sql.append(" AND (");
+
+            for (int i = 0; i < selectedLevels.size(); i++) {
+                String levelKey = selectedLevels.get(i);
+                String[] map = mappingLevel.get(levelKey);
+                String lvl = map[0];
+                String parcours = map[1];
+
+                sql.append("(u.level = ?");
+
+                if (parcours != null) {
+                    sql.append(" AND u.parcours = ?");
+                }
+
+                sql.append(")");
+
+                if (i < selectedLevels.size() - 1) {
+                    sql.append(" OR ");
+                }
+            }
+
+            sql.append(")");
+        }
+
+        sql.append(" LIMIT ? OFFSET ?");
+        return sql;
     }
 
     private Button validate(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
