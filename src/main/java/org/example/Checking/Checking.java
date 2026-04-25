@@ -1,11 +1,12 @@
 package org.example.Checking;
 
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.select.Select;
-import com.vaadin.flow.component.combobox.ComboBox;
+
 
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.grid.Grid;
@@ -22,19 +23,16 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.theme.Theme;
 import org.example.Helper.*;
 import org.example.Initialiser.DataInitialiser;
 import org.example.LoginView;
 import org.example.Session.UserSession;
-
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.ResultSet;
-import java.sql.Statement;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -51,13 +49,13 @@ import java.util.*;
 
 @Route("checking")
 @CssImport("./styles/checking.css")
-public class Checking extends VerticalLayout implements BeforeEnterObserver
-{
+public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
     public List<StudentsPayment> studentsPaymentList;
 
-    Map<Integer, Set<Integer>> allPayments ;
+    Map<Integer, Set<Integer>> allPayments;
     Map<String, String[]> mappingLevel;
+    Map<Integer, Map<Integer, Boolean>> modifications = new HashMap<>();
 
     List<Integer> yearsList;
 
@@ -66,25 +64,21 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
 
     Grid<StudentsPayment> grid;
-    LocalDate today ;
+    LocalDate today;
     int currentYear;
     int currentMonth;
     int startYear;
 
     String[] filter = {""};
-    StringBuilder sql;
 
     PaymentService paymentService;
 
-    TextField searchField ;
+    TextField searchField;
 
     String[] selectableLevel;
 
 
-    public Checking()
-    {
-
-        List<Object> param = new ArrayList<>();
+    public Checking() {
 
         setHeightFull();
 
@@ -109,7 +103,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         yearSelect.setValue(startYear);
 
         selectableLevel = new String[]{
-                "All",
+                "TOUS",
                 "L1",
                 "L2",
                 "L3",
@@ -121,7 +115,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         levelSelect.setPlaceholder("Choisir le ou les niveaux");
         levelSelect.setItems(selectableLevel);
         levelSelect.setValue(selectableLevel[0]);
-        
+
 
         mappingLevel = Map.of(
                 "L1", new String[]{"L1", null},
@@ -132,18 +126,14 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 "M2", new String[]{"M2", null}
 
         );
-        
-        Map<Integer, Map<Integer, Boolean>> modifications = new HashMap<>();
 
-        try
-        {
+        try {
             Connection con = DriverManager.getConnection(
                     DataInitialiser.url,
                     DataInitialiser.user,
                     DataInitialiser.pwd);
 
             paymentService = new PaymentService(con);
-            allPayments = paymentService.getAllPaymentsForYear(yearSelect.getValue());
 
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
 
@@ -151,23 +141,23 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                     {
 
                         String f = "%" + filter[0].toLowerCase() + "%";
-                        
+
                         Set<String> selected = levelSelect.getValue();
                         List<String> dbLevels = new ArrayList<>();
 
                         System.out.println(selected);
 
-                        if (!selected.contains("All"))
+                        if (!selected.contains("TOUS"))
                         {
                             for (String lvl : selected)
                             {
                                 String[] mapped = mappingLevel.get(lvl);
-                                
+
                                 if (mapped != null)
                                 {
                                     for (String m : mapped)
                                     {
-                                        if (m != null) 
+                                        if (m != null)
                                             dbLevels.add(m);
                                     }
                                 }
@@ -178,8 +168,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                         Map<Integer, StudentsPayment> map = new HashMap<>();
 
-                        try (PreparedStatement ps = con.prepareStatement(sql.toString()))
-                        {
+                        try (PreparedStatement ps = con.prepareStatement(sql.toString())) {
 
                             int index = 1;
 
@@ -194,28 +183,24 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                             ResultSet rs = ps.executeQuery();
 
-                            while (rs.next())
-                            {
+                            while (rs.next()) {
                                 int id = rs.getInt("id");
 
                                 StudentsPayment sp = map.computeIfAbsent(id, k ->
                                 {
-                                    try
-                                    {
+                                    try {
                                         return new StudentsPayment(new Students(
                                                 id,
                                                 rs.getString("name"),
                                                 rs.getString("firstname"),
                                                 rs.getString("level")
                                         ));
-                                    } catch (SQLException e)
-                                    {
+                                    } catch (SQLException e) {
                                         throw new RuntimeException(e);
                                     }
                                 });
 
-                                if (rs.getDate("payment_date") != null)
-                                {
+                                if (rs.getDate("payment_date") != null) {
                                     sp.addPayment(new Payment(
                                             id,
                                             rs.getInt("paid_month"),
@@ -241,16 +226,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         Set<String> selected = levelSelect.getValue();
                         List<String> dbLevels = new ArrayList<>();
 
-                        if (!selected.contains("All"))
-                        {
-                            for (String lvl : selected)
-                            {
+                        if (!selected.contains("TOUS")) {
+                            for (String lvl : selected) {
                                 String[] mapped = mappingLevel.get(lvl);
 
-                                if (mapped != null)
-                                {
-                                    for (String m : mapped)
-                                    {
+                                if (mapped != null) {
+                                    for (String m : mapped) {
                                         if (m != null)
                                             dbLevels.add(m);
 
@@ -286,116 +267,18 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
 
             grid = new Grid<>(StudentsPayment.class, false);
-            grid.addColumn(StudentsPayment::getID).setHeader("id").setAutoWidth(true).setFlexGrow(1);
-            grid.addColumn(StudentsPayment::getName).setHeader("Nom").setAutoWidth(true).setFlexGrow(1);
-            grid.addColumn(StudentsPayment::getFirstName).setHeader("Prénom").setAutoWidth(true).setFlexGrow(1);
+            upDateGrid();
 
-            //add month column dynamically
-            for (int i = 1; i <= currentMonth; i++)
-            {
-                final int month = i;
-                String moisNom = Month.of(month).getDisplayName(TextStyle.FULL, Locale.FRENCH);
-
-                grid.addComponentColumn(sp ->
-                {
-                    boolean paid = allPayments.getOrDefault(
-                            sp.getID(), Collections.emptySet())
-                                .contains(month);
-                    Checkbox cb = new Checkbox(paid);
-
-                    if (paid) cb.setEnabled(false);
-
-                    cb.addValueChangeListener(e ->
-                    {
-                        boolean newValue = e.getValue();
-
-                        boolean initialValue = allPayments
-                                .getOrDefault(sp.getID(), Collections.emptySet())
-                                .contains(month);
-
-                        if (newValue == initialValue)
-                        {
-                            if (modifications.containsKey(sp.getID()))
-                            {
-                                modifications.get(sp.getID()).remove(month);
-
-                                if (modifications.get(sp.getID()).isEmpty())
-                                    modifications.remove(sp.getID());
-                            }
-                        } else
-                        {
-                            modifications
-                                    .computeIfAbsent(sp.getID(), k -> new HashMap<>())
-                                    .put(month, newValue);
-                        }
-                    });
-                    return (cb);
-                }).setHeader(moisNom + " " + startYear).setAutoWidth(true).setFlexGrow(1);
-
-            }
             //change the year shown based on the selected year
             yearSelect.addValueChangeListener(event ->
             {
                 int selectedYears = event.getValue();
 
-                Notification warn = new Notification("Année sélectionnées: " + selectedYears, 3000);
-                warn.addThemeVariants(NotificationVariant.INFO);
-                warn.open();
+                showNotification("Année sélectionnées: " + selectedYears,
+                            VaadinIcon.INFO_CIRCLE_O,
+                        NotificationVariant.INFO);
 
-                grid.removeAllColumns();
-
-                grid.addColumn(StudentsPayment::getID).setHeader("id").setAutoWidth(true).setFlexGrow(1);
-                grid.addColumn(StudentsPayment::getName).setHeader("Nom").setAutoWidth(true).setFlexGrow(1);
-                grid.addColumn(StudentsPayment::getFirstName).setHeader("Prénom").setAutoWidth(true).setFlexGrow(1);
-
-
-                for (int month = 1; month <= currentMonth; month++)
-                {
-                    String moisNom = Month.of(month).getDisplayName(TextStyle.FULL, Locale.FRENCH);
-
-                    int finalMonth = month;
-                    grid.addComponentColumn(sp -> {
-                        boolean paid = allPayments.getOrDefault(
-                                sp.getID(), Collections.emptySet())
-                                    .contains(finalMonth);
-                        Checkbox cb = new Checkbox(paid);
-
-                        if (paid) cb.setEnabled(false);
-
-
-                        /*
-                            if the value change from the initial_state (paid) we add the student_id
-                            and if it returns to the first state, we remove that student from modifications
-                         */
-                        cb.addValueChangeListener(e ->
-                        {
-                            boolean newValue = e.getValue();
-
-                            boolean initialValue = allPayments
-                                    .getOrDefault(sp.getID(), Collections.emptySet())
-                                    .contains(finalMonth);
-
-                            if (newValue == initialValue)
-                            {
-                                if (modifications.containsKey(sp.getID()))
-                                {
-                                    modifications.get(sp.getID()).remove(finalMonth);
-
-                                    if (modifications.get(sp.getID()).isEmpty())
-                                        modifications.remove(sp.getID());
-                                }
-                            } else
-                            {
-                                modifications
-                                        .computeIfAbsent(sp.getID(), k -> new HashMap<>())
-                                        .put(finalMonth, newValue);
-                            }
-                        });
-
-                        return cb;
-                    }).setHeader(moisNom + " " + selectedYears);
-                }
-
+                upDateGrid();
                 grid.getDataProvider().refreshAll();
             });
 
@@ -409,7 +292,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             });
 
             levelSelect.addValueChangeListener(e -> {
-               grid.getDataProvider().refreshAll();
+                grid.getDataProvider().refreshAll();
             });
 
 
@@ -438,13 +321,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     private static StringBuilder getBuilder(List<String> dbLevels)
     {
         StringBuilder countSql = new StringBuilder(
-            """
-                SELECT COUNT(*)
-                FROM users_full u
-                WHERE (LOWER(u.name) LIKE ? 
-                    OR LOWER(u.firstname) LIKE ? 
-                    OR LOWER(u.inscription_number) LIKE ?)
-            """);
+                """
+                            SELECT COUNT(*)
+                            FROM users_full u
+                            WHERE (LOWER(u.name) LIKE ?
+                                OR LOWER(u.firstname) LIKE ?
+                                OR LOWER(u.inscription_number) LIKE ?)
+                        """);
 
         if (!dbLevels.isEmpty())
         {
@@ -460,19 +343,20 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         return (countSql);
     }
 
-    private static StringBuilder getStringBuilder(List<String> selectedLevels)
+    private StringBuilder getStringBuilder(List<String> selectedLevels)
     {
         StringBuilder sql = new StringBuilder(
                 """
-                SELECT u.id, u.name, u.firstname, u.level, u.parcours,
-                       p.paid_month, p.paid_year, p.payment_date, p.status
-                FROM users_full u
-                LEFT JOIN payment p ON u.id = p.student_id
-                WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
-                """
+                        SELECT u.id, u.name, u.firstname, u.level, u.parcours,
+                               p.paid_month, p.paid_year, p.payment_date, p.status
+                        FROM users_full u
+                        LEFT JOIN payment p ON u.id = p.student_id
+                        WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
+                        """
         );
 
-        if (!selectedLevels.isEmpty() && !selectedLevels.contains("All")) {
+        if (!selectedLevels.isEmpty() && !selectedLevels.contains("TOUS"))
+        {
             sql.append(" AND (");
 
             for (int i = 0; i < selectedLevels.size(); i++) {
@@ -498,7 +382,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         }
 
         sql.append(" LIMIT ? OFFSET ?");
-        return sql;
+        return (sql);
     }
 
     private Button validate(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
@@ -508,8 +392,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
         validerBtn.addClickListener(e ->
         {
-            if (modifications.isEmpty())
-            {
+            if (modifications.isEmpty()) {
                 Notification.show("Aucune modification à valider.");
                 return;
             }
@@ -536,7 +419,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         modifications.forEach((studentId, moisMap) ->
         {
             StudentsPayment student = findStudentById(studentId);
-            String studentInfo = student.getName() + " " + student.getFirstName() + "ID: " + studentId;
 
             moisMap.forEach((mois, valeur) -> {
                 String moisNom = Month.of(mois).getDisplayName(TextStyle.FULL, Locale.FRENCH);
@@ -580,15 +462,14 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 loadPaymentFromDB();
                 grid.getDataProvider().refreshAll();
 
-                Notification notif = new Notification("Mises à jour enregistrées", 3000);
-                notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                notif.open();
+                showNotification("Misesà jour enregistrée",
+                        VaadinIcon.CHECK_CIRCLE_O,
+                        NotificationVariant.LUMO_SUCCESS);
 
             } catch (SQLException ex) {
-                Notification notif = new Notification("Erreur lors de la validation " + ex.getMessage(),
-                        3000);
-                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                notif.open();
+                showNotification("Erreur lors de la validation",
+                        VaadinIcon.CLOSE_CIRCLE_O,
+                        NotificationVariant.LUMO_ERROR);
             }
         });
 
@@ -601,17 +482,93 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
-    private StudentsPayment findStudentById(int id)
-    {
+    private StudentsPayment findStudentById(int id) {
         return studentsPaymentList.stream()
                 .filter(s -> s.getID() == id)
                 .findFirst()
                 .orElse(null);
     }
 
-    private void loadPaymentFromDB()
-    {
+    private void loadPaymentFromDB() {
         allPayments = paymentService.getAllPaymentsForYear(yearSelect.getValue());
+    }
+
+    private void showNotification(String message, VaadinIcon icon, NotificationVariant variant)
+    {
+        Icon vaadinIcon = icon.create();
+        vaadinIcon.setColor(variant == NotificationVariant.LUMO_ERROR ? "orange"
+                                    : variant == NotificationVariant.INFO ? "yellow": "green" );
+
+        Span text = new Span(message);
+        HorizontalLayout content = new HorizontalLayout(vaadinIcon, text);
+        content.setAlignItems(Alignment.CENTER);
+
+        Notification notification = new Notification(content);
+        notification.addThemeVariants(variant);
+        notification.setDuration(3000);
+        notification.open();
+    }
+
+    private void upDateGrid()
+    {
+        grid.removeAllColumns();
+
+        today = LocalDate.now();
+        currentMonth = today.getMonthValue();
+        currentYear = today.getYear();
+        int selectYear = yearSelect.getValue();
+
+        //choose before the current year (the start year is 2026 so can't show 2025, ...)
+
+        int monthsToShow = (selectYear < today.getYear()) ? 12 : currentMonth;
+
+        grid.addColumn(StudentsPayment::getID).setHeader("id").setAutoWidth(true).setFlexGrow(1);
+        grid.addColumn(StudentsPayment::getName).setHeader("Nom").setAutoWidth(true).setFlexGrow(1);
+        grid.addColumn(StudentsPayment::getFirstName).setHeader("Prénom").setAutoWidth(true).setFlexGrow(1);
+
+        for (int i = 1; i <= monthsToShow; i++)
+        {
+            final int month = i;
+            String moisNom = Month.of(month).getDisplayName(TextStyle.FULL, Locale.FRENCH);
+
+            grid.addComponentColumn(sp ->
+            {
+                boolean paid = allPayments.getOrDefault(
+                                sp.getID(), Collections.emptySet())
+                        .contains(month);
+                Checkbox cb = new Checkbox(paid);
+
+                if (paid) cb.setEnabled(false);
+
+                cb.addValueChangeListener(e ->
+                {
+                    boolean newValue = e.getValue();
+
+                    boolean initialValue = allPayments
+                            .getOrDefault(sp.getID(), Collections.emptySet())
+                            .contains(month);
+
+                    if (newValue == initialValue)
+                    {
+                        if (modifications.containsKey(sp.getID()))
+                        {
+                            modifications.get(sp.getID()).remove(month);
+
+                            if (modifications.get(sp.getID()).isEmpty())
+                                modifications.remove(sp.getID());
+                        }
+                    } else
+                    {
+                        modifications
+                                .computeIfAbsent(sp.getID(), k -> new HashMap<>())
+                                .put(month, newValue);
+                    }
+                });
+                return (cb);
+            }).setHeader(moisNom + " " + startYear).setAutoWidth(true).setFlexGrow(1);
+
+        }
+
     }
 
     @Override
@@ -619,5 +576,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     {
         if (!UserSession.isLoggedIn())
             beforeEnterEvent.rerouteTo(LoginView.class);
+        else
+        {
+
+            this.today = LocalDate.now();
+            this.currentYear = today.getYear();
+            this.currentMonth = today.getMonthValue();
+
+            loadPaymentFromDB();
+            upDateGrid();
+        }
     }
 }
