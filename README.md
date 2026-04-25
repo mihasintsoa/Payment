@@ -1,5 +1,7 @@
 # Project Base for a Vaadin application
 
+This project is used to track and check the payment of user in a data base
+
 This project can be used as a starting point to create your own Vaadin application.
 It has the necessary dependencies and files to help you get started.
 It requires Java 8 or newer and node.js 10.16 or newer.
