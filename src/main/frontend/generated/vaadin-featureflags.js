@@ -10,12 +10,12 @@ window.Vaadin.featureFlags.fullstackSignals = false;
 window.Vaadin.featureFlags.masterDetailLayoutComponent = false;
 window.Vaadin.featureFlags.layoutComponentImprovements = false;
 window.Vaadin.featureFlags.defaultAutoResponsiveFormLayout = false;
+window.Vaadin.featureFlags.copilotExperimentalFeatures = false;
 window.Vaadin.featureFlags.aiComponents = false;
 window.Vaadin.featureFlags.badgeComponent = false;
 window.Vaadin.featureFlags.messageListAttachments = false;
 window.Vaadin.featureFlags.sliderComponent = false;
 window.Vaadin.featureFlags.modularUpload = false;
-window.Vaadin.featureFlags.copilotExperimentalFeatures = false;
 };
 if (window.Vaadin.featureFlagsUpdaters) { 
 const activator = (id) => window.Vaadin.featureFlags[id] = true;

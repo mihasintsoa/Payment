@@ -6,6 +6,10 @@ vaadin-grid
   box-shadow: 0 4px 6px -1px rgba(200, 16, 46, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   font-family: 'Outfit', sans-serif;
   border: 1px solid #f5e6e8;
+
+  scrollbar-width: thin;
+  scrollbar-color: #eecbcd transparent;
+
 }
 
 vaadin-grid::part(header-cell)
@@ -52,12 +56,6 @@ vaadin-grid-cell-content
 {
   display: flex;
   align-items: center;
-}
-
-vaadin-grid::part(scroller)
-{
-  scrollbar-width: thin;
-  scrollbar-color: #eecbcd transparent;
 }
 
 vaadin-dialog::part(overlay)

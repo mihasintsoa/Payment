@@ -43,7 +43,7 @@ public class LoginView extends VerticalLayout
                 loginForm.setError(true);
         });
 
-        H1 title = new H1("Gestion Paiements Internet");
+        H1 title = new H1("Gestion Paiements Cotisation");
         title.addClassName("login-title");
 
         add(title, loginForm);
