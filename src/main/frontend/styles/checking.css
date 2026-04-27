@@ -1,14 +1,15 @@
-vaadin-grid {
+vaadin-grid
+{
   border-radius: 14px;
   overflow: hidden;
   background: var(--white);
-  /* Added a subtle red tint to the shadow */
   box-shadow: 0 4px 6px -1px rgba(200, 16, 46, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   font-family: 'Outfit', sans-serif;
   border: 1px solid #f5e6e8;
 }
 
-vaadin-grid::part(header-cell) {
+vaadin-grid::part(header-cell)
+{
   background: #fff5f6;
   color: #8a1528;
   font-weight: 600;
@@ -18,40 +19,44 @@ vaadin-grid::part(header-cell) {
   padding: 12px 16px;
 }
 
-vaadin-grid::part(cell) {
+vaadin-grid::part(cell)
+{
   padding: 12px 16px;
   font-size: 14px;
   color: #4a4a4a;
   border-bottom: 1px solid #f7f1f2;
 }
 
-vaadin-grid::part(row):hover {
+vaadin-grid::part(row):hover
+{
   background: rgba(200, 16, 46, 0.04);
   transition: background 0.2s ease;
 }
 
-/* Selected state: Slightly deeper red wash */
-vaadin-grid::part(selected-row) {
+vaadin-grid::part(selected-row)
+{
   background: rgba(200, 16, 46, 0.08);
 }
 
-/* Striping: Very faint blush tint for even rows */
-vaadin-grid::part(row):nth-child(even) {
+vaadin-grid::part(row):nth-child(even)
+{
   background: #fffafa;
 }
 
-vaadin-grid::part(row:last-child) ::part(cell) {
+vaadin-grid::part(row:last-child) ::part(cell)
+{
   border-bottom: none;
 }
 
-vaadin-grid-cell-content {
+vaadin-grid-cell-content
+{
   display: flex;
   align-items: center;
 }
 
-vaadin-grid::part(scroller) {
+vaadin-grid::part(scroller)
+{
   scrollbar-width: thin;
-  /* Scrollbar thumb reflects the red theme */
   scrollbar-color: #eecbcd transparent;
 }
 
@@ -62,6 +67,198 @@ vaadin-dialog::part(overlay)
     border-radius: 12px;
     box-shadow: 0 10px 15px -3px rgba(200, 16, 46, 0.2);
 }
+
+
+
+vaadin-checkbox
+{
+  font-family: 'Outfit', sans-serif;
+  color: #4a4a4a;
+}
+
+vaadin-checkbox::part(checkbox)
+{
+  border: 2px solid #eecbcd;
+  border-radius: 6px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+vaadin-checkbox::part(label)
+{
+  font-size: 14px;
+  color: #4a4a4a;
+}
+
+vaadin-checkbox:hover::part(checkbox)
+{
+  border-color: rgba(200, 16, 46, 0.4);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.05);
+}
+
+vaadin-checkbox::part(checkbox):focus
+{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.2);
+}
+
+vaadin-checkbox[checked]::part(checkbox)
+{
+  background: #c8102e;
+  border-color: #c8102e;
+}
+
+vaadin-checkbox[checked]::part(checkbox)::after
+{
+  color: #ffffff;
+}
+
+vaadin-checkbox[disabled]
+{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+vaadin-checkbox[disabled]::part(checkbox)
+{
+  background: #f5f5f5;
+  border-color: #dddddd;
+}
+
+vaadin-checkbox[disabled][checked]::part(checkbox)
+{
+  background: #d9a1a8;
+  border-color: #d9a1a8;
+}
+
+
+
+/* READ-ONLY (custom class)  */
+vaadin-checkbox.read-only-checkbox
+{
+  opacity: 0.7;
+  cursor: default;
+}
+
+vaadin-checkbox.read-only-checkbox:hover::part(checkbox)
+{
+  border-color: #eecbcd;
+  box-shadow: none;
+}
+
+vaadin-checkbox.read-only-checkbox::part(checkbox)
+{
+  background: #fff5f6;
+  border-color: #e6b8bd;
+}
+
+vaadin-checkbox.read-only-checkbox[checked]::part(checkbox)
+{
+  background: #d14a5c;
+  border-color: #d14a5c;
+}
+
+vaadin-checkbox.read-only-checkbox[checked]::part(checkbox)::after
+{
+  color: #ffffff;
+}
+
+
+vaadin-upload
+{
+  font-family: 'Outfit', sans-serif;
+  border: 2px dashed #eecbcd;
+  border-radius: 14px;
+  background: #fffafa;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+
+vaadin-upload:hover,
+vaadin-upload[dragover]
+{
+  border-color: #c8102e;
+  background: #fff5f6;
+}
+
+vaadin-upload::part(upload-button)
+{
+  background-color: #c8102e;
+  color: white;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+vaadin-upload::part(upload-button):hover
+{
+  background-color: #a50d26;
+}
+
+
+vaadin-upload::part(drop-label)
+{
+  color: #8a1528;
+  font-size: 14px;
+}
+
+vaadin-upload-file
+{
+  background: #ffffff;
+  border: 1px solid #f5e6e8;
+  border-radius: 10px;
+  margin-top: 8px;
+  padding: 8px 12px;
+}
+
+vaadin-upload-file::part(name)
+{
+  color: #4a4a4a;
+  font-size: 14px;
+}
+
+vaadin-upload-file[complete]
+{
+  border-color: #d4edda;
+  background: #f6fff8;
+}
+
+vaadin-upload-file[error]
+{
+  border-color: #f5c6cb;
+  background: #fff5f6;
+}
+
+vaadin-upload-file::part(remove-button)
+{
+  color: #c8102e;
+}
+
+vaadin-upload > vaadin-button
+{
+  background-color: #c8102e !important;
+  color: #ffffff !important;
+  border-radius: 8px;
+  font-weight: 500;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  --vaadin-button-background: #c8102e;
+  --vaadin-button-text-color: #ffffff;
+}
+
+vaadin-upload > vaadin-button::part(label)
+{
+    background: #c8102e;
+    color: #ffffff;
+}
+
+vaadin-upload > vaadin-button:hover
+{
+  background-color: #a50d26 !important;
+  background: #a50d26;
+}
+
 
 .validate-btn
 {

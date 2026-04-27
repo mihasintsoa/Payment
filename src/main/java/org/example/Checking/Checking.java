@@ -147,6 +147,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
             uploadCSV = createCsvUpload(paymentService);
 
+            uploadCSV.setEnabled(UserSession.isAdmin());
+
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
 
                     query ->
@@ -400,11 +402,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
     private Button validate(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
     {
         Button validerBtn = new Button("Valider");
+        validerBtn.setEnabled(UserSession.isAdmin());
         validerBtn.addClassName("validate-btn");
 
         validerBtn.addClickListener(e ->
         {
-            if (modifications.isEmpty()) {
+            if (modifications.isEmpty())
+            {
                 Notification.show("Aucune modification à valider.");
                 return;
             }
@@ -486,6 +490,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         });
 
         confirmer.addClassName("validate-btn");
+        confirmer.setEnabled(UserSession.isAdmin());
 
         Button annuler = new Button("Annuler", ev -> dialog.close());
 
@@ -550,7 +555,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                         .contains(month);
                 Checkbox cb = new Checkbox(paid);
 
-                if (paid) cb.setEnabled(false);
+                //if (paid) cb.setEnabled(false);
+                if (!UserSession.isAdmin())
+                {
+                    cb.setReadOnly(true);
+                    cb.addClassName("read-only-checkbox");
+                }
 
                 cb.addValueChangeListener(e ->
                 {

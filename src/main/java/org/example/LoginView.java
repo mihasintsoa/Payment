@@ -33,12 +33,14 @@ public class LoginView extends VerticalLayout
             //we can change this to use a real database but for now, we will stick to it
             if ("admin".equals(e.getUsername()) && "password123".equals(e.getPassword()))
             {
-                UserSession.setLoggedIn(true);
+                UserSession.setRole("admin");
+                getUI().ifPresent(ui -> ui.navigate("checking"));
+            } else if ("guest".equals(e.getUsername() ) && "guest".equals(e.getPassword()))
+            {
+                UserSession.setRole("guest");
                 getUI().ifPresent(ui -> ui.navigate("checking"));
             } else
-            {
                 loginForm.setError(true);
-            }
         });
 
         H1 title = new H1("Gestion Paiements Internet");
