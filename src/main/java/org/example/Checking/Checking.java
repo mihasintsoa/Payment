@@ -17,17 +17,24 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+
 import com.vaadin.flow.data.provider.DataProvider;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.streams.UploadHandler;
+import org.example.CSVHelper.CSVMeth;
+import org.example.CSVHelper.CSVRow;
 import org.example.Helper.*;
 import org.example.Initialiser.DataInitialiser;
 import org.example.LoginView;
 import org.example.Session.UserSession;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -38,20 +45,20 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.TextStyle;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Collections;
 
-
-/**
- * TODO
- *  need Change the the DataProvider so we can build the sql request dynamically
- * Remove this if that is finished
- * */
 
 @Route("checking")
 @CssImport("./styles/checking.css")
 public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
-    public List<StudentsPayment> studentsPaymentList;
+    public static List<StudentsPayment> studentsPaymentList;
 
     Map<Integer, Set<Integer>> allPayments;
     Map<String, String[]> mappingLevel;
@@ -64,6 +71,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
 
     Grid<StudentsPayment> grid;
+    Upload uploadCSV;
     LocalDate today;
     int currentYear;
     int currentMonth;
@@ -76,6 +84,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
     TextField searchField;
 
     String[] selectableLevel;
+
 
 
     public Checking() {
@@ -127,6 +136,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
         );
 
+
         try {
             Connection con = DriverManager.getConnection(
                     DataInitialiser.url,
@@ -134,6 +144,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                     DataInitialiser.pwd);
 
             paymentService = new PaymentService(con);
+
+            uploadCSV = createCsvUpload(paymentService);
 
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
 
@@ -310,7 +322,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         add(hor);
         add(grid);
 
-        HorizontalLayout hor2 = new HorizontalLayout(validate(modifications, paymentService), yearSelect);
+        HorizontalLayout hor2 = new HorizontalLayout(validate(modifications, paymentService), yearSelect, uploadCSV);
         hor2.setAlignItems(Alignment.CENTER);
         hor2.setJustifyContentMode(JustifyContentMode.CENTER);
         hor2.setWidthFull();
@@ -570,6 +582,41 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         }
 
     }
+
+    private Upload createCsvUpload(PaymentService paymentService) {
+        Upload upload = new Upload(UploadHandler.inMemory((metadata, bytes) ->
+        {
+            try (InputStream inputStream = new ByteArrayInputStream(bytes))
+            {
+                List<CSVRow> rows = CSVMeth.parseCSV(inputStream);
+                for (CSVRow r : rows)
+                    System.out.println(r.getName() + "-" + r.getFirstName() + "-" + r.getStatus());
+
+                CSVMeth.applyCsv(rows, paymentService);
+
+                showNotification(
+                        "Import CSV terminé",
+                        VaadinIcon.CHECK_CIRCLE_O,
+                        NotificationVariant.LUMO_SUCCESS
+                );
+
+                loadPaymentFromDB();
+                grid.getDataProvider().refreshAll();
+
+            } catch (Exception e) {
+                showNotification(
+                        "Erreur import CSV",
+                        VaadinIcon.CLOSE_CIRCLE_O,
+                        NotificationVariant.LUMO_ERROR
+                );
+            }
+        }));
+
+        upload.setAcceptedFileTypes(".csv");
+        return (upload);
+    }
+
+
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent)
