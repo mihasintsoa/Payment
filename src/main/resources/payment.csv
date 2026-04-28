@@ -1,0 +1,4 @@
+id,student_id,month,year,payment_date,status
+1,1,2,2026,2026-02-15,PAID
+2,10,2,2026,2026-02-15,PAID
+3,10,3,2026,2026-02-16,PAID

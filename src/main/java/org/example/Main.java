@@ -2,9 +2,11 @@ package org.example;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.server.servlet.context.ServletComponentScan;
 
 import java.util.Map;
 
+@ServletComponentScan
 @SpringBootApplication
 public class Main
 {

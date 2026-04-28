@@ -555,7 +555,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                         .contains(month);
                 Checkbox cb = new Checkbox(paid);
 
-                //if (paid) cb.setEnabled(false);
+                if (paid) cb.setEnabled(false);
                 if (!UserSession.isAdmin())
                 {
                     cb.setReadOnly(true);
