@@ -27,12 +27,14 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.streams.UploadHandler;
+import jakarta.annotation.security.PermitAll;
 import org.example.CSVHelper.CSVMeth;
 import org.example.CSVHelper.CSVRow;
 import org.example.Helper.*;
 import org.example.Initialiser.DataInitialiser;
-import org.example.LoginView;
-import org.example.Session.UserSession;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -46,50 +48,165 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.TextStyle;
 
-import java.util.ArrayList;
-import java.util.Set;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Collections;
+import java.util.Locale;
+import java.util.Objects;
 
 
 @Route("checking")
 @CssImport("./styles/checking.css")
 @PageTitle("List&Check")
-public class Checking extends VerticalLayout implements BeforeEnterObserver {
+@PermitAll
+public class Checking extends VerticalLayout implements BeforeEnterObserver
+{
 
+    /**
+     * Temporary list of students from the last DataProvider fetch (current page only).
+     * WARNING: gets overwritten on every scroll/refresh — only reliable immediately
+     * after a fetch. Used exclusively by {@code CSVMeth.applyCsv} during CSV import,
+     * which is triggered manually and runs right after a fetch cycle.
+     */
     public List<StudentsPayment> studentsPaymentList;
 
+    /**
+     * Map of all payments loaded from DB for the selected year.
+     * Structure: studentId -> Set of paid month numbers (1-12).
+     * Refreshed on year change, page enter, and after validation.
+     */
     Map<Integer, Set<Integer>> allPayments;
+
+    /**
+     * Maps UI-level names (e.g. "M1 INT") to their DB equivalents.
+     * Structure: UI label -> [level, parcours] (parcours may be null).
+     * Used to build SQL WHERE clauses from the level filter selection.
+     */
     Map<String, String[]> mappingLevel;
+
+    /**
+     * Pending checkbox changes not yet confirmed/saved to DB.
+     * Structure: studentId -> (monthNumber -> isPaid).
+     * Cleared after validation or cancellation.
+     */
     Map<Integer, Map<Integer, Boolean>> modifications = new HashMap<>();
 
+    /**
+     * Stores the StudentsPayment object for each student with pending modifications.
+     * Keyed by student ID. Mirrors the keys in {@code modifications}.
+     * Needed because the DataProvider may have scrolled past those students,
+     * making them unavailable via the grid. Cleared alongside {@code modifications}.
+     */
+    Map<Integer, StudentsPayment> modifiedStudents = new HashMap<>();
+
+
+    /**
+     * List of available academic years shown in the year selector.
+     * Currently only contains the start year (2026), but structured
+     * as a list to allow future expansion.
+     */
     List<Integer> yearsList;
 
+    /**
+     * Dropdown to select the academic year to display payments for.
+     * Changing this triggers a grid column rebuild and data refresh.
+     */
     Select<Integer> yearSelect;
+
+    /**
+     * Multi-select filter for student levels (L1, L2, M1 INT, etc.).
+     * "TOUS" means no level filter is applied.
+     * Changing this triggers a data refresh.
+     */
     MultiSelectComboBox<String> levelSelect;
 
 
+
+    /**
+     * Main data grid displaying students and their monthly payment checkboxes.
+     * Columns are rebuilt on year change via {@code upDateGrid()}.
+     */
     Grid<StudentsPayment> grid;
+
+    /**
+     * Upload component for importing payments via CSV file.
+     * Only enabled for ADMIN users.
+     */
     Upload uploadCSV;
+
+    /**
+     * Today's date, used to determine how many months to display
+     * (only shows months up to the current month for the current year).
+     */
     LocalDate today;
+
+    /**
+     * Current calendar year at the time of the last grid update.
+     */
     int currentYear;
+
+    /**
+     * Current month number (1-12) at the time of the last grid update.
+     */
     int currentMonth;
+
+    /**
+     * The first supported academic year. Defines the lower bound
+     * of the year selector and the column headers.
+     */
     int startYear;
 
+    /**
+     * Single-element array holding the current search filter string.
+     * Array wrapper allows mutation inside lambda expressions.
+     */
     String[] filter = {""};
 
+    /**
+     * Service handling all DB read/write operations for payments.
+     * Initialized once with the shared DB connection.
+     */
     PaymentService paymentService;
 
+    /**
+     * Text input for searching students by name or firstname.
+     * Uses LAZY mode to avoid querying on every keystroke.
+     */
     TextField searchField;
 
+    /**
+     * Available level options shown in the level multi-select filter.
+     * Includes "TOUS" as the default catch-all option.
+     */
     String[] selectableLevel;
 
 
+    /**
+     * Current Spring Security authentication context.
+     * Used to determine the logged-in user's roles.
+     */
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-    public Checking() {
+    /**
+     * True if the authenticated user has the ROLE_ADMIN authority.
+     * Admins can edit checkboxes, validate payments, and upload CSVs.
+     */
+    boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(a -> Objects.equals(a.getAuthority(), "ROLE_ADMIN"));
+
+    /**
+     * True if the authenticated user has the ROLE_GUEST authority.
+     * Guests have read-only access to the payment grid.
+     */
+    boolean isGuest = auth.getAuthorities().stream()
+            .anyMatch(a -> Objects.equals(a.getAuthority(), "ROLE_GUEST"));
+
+
+    public Checking()
+    {
 
         setHeightFull();
 
@@ -149,7 +266,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
             uploadCSV = createCsvUpload(paymentService);
 
-            uploadCSV.setEnabled(UserSession.isAdmin());
+            uploadCSV.setEnabled(isAdmin);
 
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
                     query ->
@@ -182,7 +299,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
                         Map<Integer, StudentsPayment> map = new HashMap<>();
 
-                        try (PreparedStatement ps = con.prepareStatement(sql.toString())) {
+                        try (PreparedStatement ps = con.prepareStatement(sql.toString()))
+                        {
 
                             int index = 1;
 
@@ -209,12 +327,14 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                                                 rs.getString("firstname"),
                                                 rs.getString("level")
                                         ));
-                                    } catch (SQLException e) {
+                                    } catch (SQLException e)
+                                    {
                                         throw new RuntimeException(e);
                                     }
                                 });
 
-                                if (rs.getDate("payment_date") != null) {
+                                if (rs.getDate("payment_date") != null)
+                                {
                                     sp.addPayment(new Payment(
                                             id,
                                             rs.getInt("paid_month"),
@@ -225,7 +345,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                                 }
                             }
 
-                        } catch (SQLException e) {
+                        } catch (SQLException e)
+                        {
                             throw new RuntimeException(e);
                         }
 
@@ -233,7 +354,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                         return studentsPaymentList.stream();
                     },
 
-                    query -> {
+                    query ->
+                    {
 
                         String f = "%" + filter[0].toLowerCase() + "%";
 
@@ -244,8 +366,10 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                             for (String lvl : selected) {
                                 String[] mapped = mappingLevel.get(lvl);
 
-                                if (mapped != null) {
-                                    for (String m : mapped) {
+                                if (mapped != null)
+                                {
+                                    for (String m : mapped)
+                                    {
                                         if (m != null)
                                             dbLevels.add(m);
 
@@ -256,7 +380,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
                         StringBuilder countSql = getBuilder(dbLevels);
 
-                        try (PreparedStatement ps = con.prepareStatement(countSql.toString())) {
+                        try (PreparedStatement ps = con.prepareStatement(countSql.toString()))
+                        {
 
                             int index = 1;
 
@@ -275,7 +400,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                             throw new RuntimeException(e);
                         }
 
-                        return 0;
+                        return (0);
                     }
             );
 
@@ -283,7 +408,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             grid = new Grid<>(StudentsPayment.class, false);
             upDateGrid();
 
-            //change the year shown based on the selected year
             yearSelect.addValueChangeListener(event ->
             {
                 int selectedYears = event.getValue();
@@ -373,7 +497,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         {
             sql.append(" AND (");
 
-            for (int i = 0; i < selectedLevels.size(); i++) {
+            for (int i = 0; i < selectedLevels.size(); i++)
+            {
                 String levelKey = selectedLevels.get(i);
                 String[] map = mappingLevel.get(levelKey);
                 String lvl = map[0];
@@ -381,15 +506,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
                 sql.append("(u.level = ?");
 
-                if (parcours != null) {
+                if (parcours != null)
                     sql.append(" AND u.parcours = ?");
-                }
 
                 sql.append(")");
 
-                if (i < selectedLevels.size() - 1) {
+                if (i < selectedLevels.size() - 1)
                     sql.append(" OR ");
-                }
             }
 
             sql.append(")");
@@ -402,7 +525,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
     private Button validate(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
     {
         Button validerBtn = new Button("Valider");
-        validerBtn.setEnabled(UserSession.isAdmin());
+        validerBtn.setEnabled(isAdmin);
         validerBtn.addClassName("validate-btn");
 
         validerBtn.addClickListener(e ->
@@ -434,7 +557,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
         modifications.forEach((studentId, moisMap) ->
         {
-            StudentsPayment student = findStudentById(studentId);
+            StudentsPayment student = modifiedStudents.get(studentId);
 
             moisMap.forEach((mois, valeur) -> {
                 String moisNom = Month.of(mois).getDisplayName(TextStyle.FULL, Locale.FRENCH);
@@ -460,12 +583,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             });
         });
 
-        Button confirmer = new Button("Confirmer l'enregistrement", ev -> {
+        Button confirmer = new Button("Confirmer l'enregistrement", ev ->
+        {
             try {
                 int totalChanges = 0;
-                for (var entry : modifications.entrySet()) {
+                for (var entry : modifications.entrySet())
+                {
                     int studentId = entry.getKey();
-                    for (var moisEntry : entry.getValue().entrySet()) {
+                    for (var moisEntry : entry.getValue().entrySet())
+                    {
                         int mois = moisEntry.getKey();
                         paymentService.updatePaymentDB(studentId, yearSelect.getValue(), mois, LocalDate.now());
                         totalChanges++;
@@ -474,6 +600,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
                 // Clear modifications BEFORE refreshing UI
                 modifications.clear();
+                modifiedStudents.clear();
                 dialog.close();
 
                 // Refresh data
@@ -488,20 +615,18 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                 showNotification(successMsg, VaadinIcon.CHECK_CIRCLE, NotificationVariant.LUMO_SUCCESS);
 
             } catch (SQLException ex) {
-                // Better error handling: Don't show the whole stack trace to the user
                 String errorDetail = ex.getMessage().contains("foreign key")
                         ? "Erreur d'intégrité : L'étudiant n'existe pas dans la base."
                         : "Problème de connexion à la base de données.";
 
                 showNotification(errorDetail, VaadinIcon.EXCLAMATION_CIRCLE, NotificationVariant.LUMO_ERROR);
 
-                // Log the full error for yourself in the console
                 ex.printStackTrace();
             }
         });
 
         confirmer.addClassName("validate-btn");
-        confirmer.setEnabled(UserSession.isAdmin());
+        confirmer.setEnabled(isAdmin);
 
         Button annuler = new Button("Annuler", ev -> dialog.close());
 
@@ -510,22 +635,14 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         dialog.open();
     }
 
-    private StudentsPayment findStudentById(int id) {
-        return studentsPaymentList.stream()
-                .filter(s -> s.getID() == id)
-                .findFirst()
-                .orElse(null);
-    }
-
-    private void loadPaymentFromDB() {
+    private void loadPaymentFromDB()
+    {
         allPayments = paymentService.getAllPaymentsForYear(yearSelect.getValue());
     }
 
     private void showNotification(String message, VaadinIcon icon, NotificationVariant variant)
     {
         Icon vaadinIcon = icon.create();
-        //vaadinIcon.setColor(variant == NotificationVariant.LUMO_ERROR ? "orange"
-        //                            : variant == NotificationVariant.INFO ? "yellow": "green" );
 
         Span text = new Span(message);
         HorizontalLayout content = new HorizontalLayout(vaadinIcon, text);
@@ -546,8 +663,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         currentYear = today.getYear();
         int selectYear = yearSelect.getValue();
 
-        //choose before the current year (the start year is 2026 so can't show 2025, ...)
-
         int monthsToShow = (selectYear < today.getYear()) ? 12 : currentMonth;
 
         grid.addColumn(StudentsPayment::getID).setHeader("id").setAutoWidth(true).setFlexGrow(1);
@@ -567,7 +682,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                 Checkbox cb = new Checkbox(paid);
 
                 if (paid) cb.setEnabled(false);
-                if (!UserSession.isAdmin())
+                if (!isAdmin)
                 {
                     cb.setReadOnly(true);
                     cb.addClassName("read-only-checkbox");
@@ -589,12 +704,16 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
                             if (modifications.get(sp.getID()).isEmpty())
                                 modifications.remove(sp.getID());
+
+                            modifiedStudents.remove(sp.getID());
                         }
                     } else
                     {
                         modifications
                                 .computeIfAbsent(sp.getID(), k -> new HashMap<>())
                                 .put(month, newValue);
+
+                        modifiedStudents.put(sp.getID(), sp);
                     }
                 });
                 return (cb);
@@ -604,7 +723,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
     }
 
-    private Upload createCsvUpload(PaymentService paymentService) {
+    private Upload createCsvUpload(PaymentService paymentService)
+    {
         Upload upload = new Upload(UploadHandler.inMemory((metadata, bytes) ->
         {
             try (InputStream inputStream = new ByteArrayInputStream(bytes))
@@ -622,7 +742,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
                 loadPaymentFromDB();
                 grid.getDataProvider().refreshAll();
 
-            } catch (Exception e) {
+            } catch (Exception e)
+            {
                 showNotification(
                         "Erreur import CSV",
                         VaadinIcon.CLOSE_CIRCLE_O,
@@ -635,22 +756,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
         return (upload);
     }
 
-
-
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent)
     {
-        if (!UserSession.isLoggedIn())
-            beforeEnterEvent.rerouteTo(LoginView.class);
-        else
-        {
 
-            this.today = LocalDate.now();
-            this.currentYear = today.getYear();
-            this.currentMonth = today.getMonthValue();
+        this.currentYear = today.getYear();
+        this.currentMonth = today.getMonthValue();
+        this.today = LocalDate.now();
 
-            loadPaymentFromDB();
-            upDateGrid();
-        }
+        loadPaymentFromDB();
+        upDateGrid();
     }
 }

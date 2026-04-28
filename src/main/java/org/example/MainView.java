@@ -1,15 +1,19 @@
 package org.example;
 
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
 import org.example.Checking.Checking;
 
-public class MainView extends VerticalLayout {
+@Route
+@AnonymousAllowed
+public class MainView extends VerticalLayout implements BeforeEnterObserver {
 
-    public MainView()
+    @Override
+    public void beforeEnter(BeforeEnterEvent event)
     {
-        add(new Checking());
+        event.forwardTo(Checking.class);
     }
 }
