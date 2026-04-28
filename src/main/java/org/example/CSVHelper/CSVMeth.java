@@ -44,12 +44,12 @@ public class CSVMeth
         return (csvRowList);
     }
 
-    public static void applyCsv(List<CSVRow> rows, PaymentService paymentService) throws SQLException
+    public static void applyCsv(List<CSVRow> rows, PaymentService paymentService, List<StudentsPayment> studentsPaymentList) throws SQLException
     {
 
         Map<String, StudentsPayment> index = new HashMap<>();
 
-        for (StudentsPayment sp : Checking.studentsPaymentList)
+        for (StudentsPayment sp : studentsPaymentList)
         {
             String key = (sp.getName().toLowerCase().trim() + "_" + sp.getFirstName()).toLowerCase().trim();
             index.put(key, sp);
@@ -62,7 +62,6 @@ public class CSVMeth
         {
 
             String key = row.getName().toLowerCase().trim() + "_" + row.getFirstName().toLowerCase().trim();
-            System.out.println(key);
 
             StudentsPayment student = index.get(key);
 

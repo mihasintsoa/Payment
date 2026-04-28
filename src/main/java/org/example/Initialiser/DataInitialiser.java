@@ -24,6 +24,7 @@ public class DataInitialiser implements ServletContextListener
     public static String url = "jdbc:h2:~/testdb";
     public static String user = "sa";
     public static String pwd = "";
+
     @Override
     public void contextInitialized(ServletContextEvent sc)
     {
@@ -84,3 +85,5 @@ public class DataInitialiser implements ServletContextListener
 
     }
 }
+
+

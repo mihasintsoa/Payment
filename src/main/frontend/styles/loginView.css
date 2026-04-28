@@ -1,4 +1,11 @@
-/* Background for the whole view */
+:root {
+    --lumo-primary-color: #c8102e;
+    --lumo-primary-color-50pct: rgba(200, 16, 46, 0.5);
+    --lumo-primary-color-10pct: rgba(200, 16, 46, 0.1);
+    --lumo-focus-ring-color: rgba(200, 16, 46, 0.4);
+}
+
+
 .login-view {
     background-color: #fcfcfd;
     background-image: radial-gradient(circle at 20% 30%, rgba(200, 16, 46, 0.03) 0%, transparent 100%);

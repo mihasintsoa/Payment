@@ -58,7 +58,7 @@ import java.util.Collections;
 @CssImport("./styles/checking.css")
 public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
-    public static List<StudentsPayment> studentsPaymentList;
+    public List<StudentsPayment> studentsPaymentList;
 
     Map<Integer, Set<Integer>> allPayments;
     Map<String, String[]> mappingLevel;
@@ -150,10 +150,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             uploadCSV.setEnabled(UserSession.isAdmin());
 
             DataProvider<StudentsPayment, Void> provider = DataProvider.fromCallbacks(
-
                     query ->
                     {
-
                         String f = "%" + filter[0].toLowerCase() + "%";
 
                         Set<String> selected = levelSelect.getValue();
@@ -395,7 +393,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             sql.append(")");
         }
 
-        sql.append(" LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY u.id ASC LIMIT ? OFFSET ?");
         return (sql);
     }
 
@@ -460,32 +458,43 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             });
         });
 
-        Button confirmer = new Button("Confirmer l'enregistrement", ev ->
-        {
+        Button confirmer = new Button("Confirmer l'enregistrement", ev -> {
             try {
+                int totalChanges = 0;
                 for (var entry : modifications.entrySet()) {
                     int studentId = entry.getKey();
                     for (var moisEntry : entry.getValue().entrySet()) {
                         int mois = moisEntry.getKey();
-                        // On utilise l'année sélectionnée dans le Select pour la cohérence
                         paymentService.updatePaymentDB(studentId, yearSelect.getValue(), mois, LocalDate.now());
+                        totalChanges++;
                     }
                 }
 
+                // Clear modifications BEFORE refreshing UI
                 modifications.clear();
                 dialog.close();
 
+                // Refresh data
                 loadPaymentFromDB();
                 grid.getDataProvider().refreshAll();
 
-                showNotification("Misesà jour enregistrée",
-                        VaadinIcon.CHECK_CIRCLE_O,
-                        NotificationVariant.LUMO_SUCCESS);
+                // Dynamic success message
+                String successMsg = (totalChanges > 1)
+                        ? String.format("%d paiements enregistrés avec succès !", totalChanges)
+                        : "Le paiement a été enregistré avec succès !";
+
+                showNotification(successMsg, VaadinIcon.CHECK_CIRCLE, NotificationVariant.LUMO_SUCCESS);
 
             } catch (SQLException ex) {
-                showNotification("Erreur lors de la validation",
-                        VaadinIcon.CLOSE_CIRCLE_O,
-                        NotificationVariant.LUMO_ERROR);
+                // Better error handling: Don't show the whole stack trace to the user
+                String errorDetail = ex.getMessage().contains("foreign key")
+                        ? "Erreur d'intégrité : L'étudiant n'existe pas dans la base."
+                        : "Problème de connexion à la base de données.";
+
+                showNotification(errorDetail, VaadinIcon.EXCLAMATION_CIRCLE, NotificationVariant.LUMO_ERROR);
+
+                // Log the full error for yourself in the console
+                ex.printStackTrace();
             }
         });
 
@@ -513,8 +522,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
     private void showNotification(String message, VaadinIcon icon, NotificationVariant variant)
     {
         Icon vaadinIcon = icon.create();
-        vaadinIcon.setColor(variant == NotificationVariant.LUMO_ERROR ? "orange"
-                                    : variant == NotificationVariant.INFO ? "yellow": "green" );
+        //vaadinIcon.setColor(variant == NotificationVariant.LUMO_ERROR ? "orange"
+        //                            : variant == NotificationVariant.INFO ? "yellow": "green" );
 
         Span text = new Span(message);
         HorizontalLayout content = new HorizontalLayout(vaadinIcon, text);
@@ -599,10 +608,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver {
             try (InputStream inputStream = new ByteArrayInputStream(bytes))
             {
                 List<CSVRow> rows = CSVMeth.parseCSV(inputStream);
-                for (CSVRow r : rows)
-                    System.out.println(r.getName() + "-" + r.getFirstName() + "-" + r.getStatus());
 
-                CSVMeth.applyCsv(rows, paymentService);
+                CSVMeth.applyCsv(rows, paymentService, studentsPaymentList);
 
                 showNotification(
                         "Import CSV terminé",
