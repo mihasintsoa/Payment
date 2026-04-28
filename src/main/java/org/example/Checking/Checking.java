@@ -276,8 +276,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         Set<String> selected = levelSelect.getValue();
                         List<String> dbLevels = new ArrayList<>();
 
-                        System.out.println(selected);
-
                         if (!selected.contains("TOUS"))
                         {
                             for (String lvl : selected)
