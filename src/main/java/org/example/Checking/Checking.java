@@ -24,6 +24,7 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.streams.UploadHandler;
 import org.example.CSVHelper.CSVMeth;
@@ -56,6 +57,7 @@ import java.util.Collections;
 
 @Route("checking")
 @CssImport("./styles/checking.css")
+@PageTitle("List&Check")
 public class Checking extends VerticalLayout implements BeforeEnterObserver {
 
     public List<StudentsPayment> studentsPaymentList;
