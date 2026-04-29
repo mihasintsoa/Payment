@@ -56,6 +56,8 @@ import java.util.HashMap;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 @Route("checking")
@@ -203,6 +205,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
      */
     boolean isGuest = auth.getAuthorities().stream()
             .anyMatch(a -> Objects.equals(a.getAuthority(), "ROLE_GUEST"));
+
+
+    /**
+     * To edit the error given by the uploadCSV
+     * */
+    Button edit;
 
 
     public Checking()
@@ -404,6 +412,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
 
             grid = new Grid<>(StudentsPayment.class, false);
+            grid.setSelectionMode(Grid.SelectionMode.SINGLE);
             upDateGrid();
 
             yearSelect.addValueChangeListener(event ->
@@ -442,16 +451,19 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             throw new RuntimeException(e);
         }
 
+        edit = editBtn();
+
         hor.add(searchField, levelSelect);
         add(hor);
         add(grid);
 
-        HorizontalLayout hor2 = new HorizontalLayout(validate(modifications, paymentService), yearSelect, uploadCSV);
+        HorizontalLayout hor2 = new HorizontalLayout(edit, validate(modifications, paymentService), yearSelect, uploadCSV);
         hor2.setAlignItems(Alignment.CENTER);
         hor2.setJustifyContentMode(JustifyContentMode.CENTER);
         hor2.setWidthFull();
 
         add(hor2);
+
     }
 
     private static StringBuilder getBuilder(List<String> dbLevels)
@@ -753,6 +765,67 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         upload.setAcceptedFileTypes(".csv");
         return (upload);
     }
+
+    private Button editBtn()
+    {
+        Button edit = new Button("Edit", VaadinIcon.EDIT.create());
+        edit.setEnabled(isAdmin);
+
+        edit.addClickListener(event ->
+        {
+            StudentsPayment std = grid.asSingleSelect().getValue();
+
+            openEditDialog(std);
+        });
+
+        return (edit);
+    }
+    private void openEditDialog(StudentsPayment student)
+    {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Edit Paid Months");
+
+        dialog.add(new Span("Use the checkboxes below to deselect months that should not be recorded as paid."));
+
+        MultiSelectComboBox<Integer> monthBox = new MultiSelectComboBox<>();
+        monthBox.setLabel("Paid Months");
+        monthBox.setItems(IntStream.rangeClosed(1, currentMonth).boxed().toList());
+
+        Set<Integer> originMonth = student.getPayments().stream()
+                                            .map(Payment::paid_month)
+                                            .collect(Collectors.toSet());
+        monthBox.setValue(originMonth);
+
+        dialog.add(monthBox);
+
+        Button cancel = new Button("Cancel", e -> dialog.close());
+        Button confirm = new Button("Confirm", e ->
+        {
+            Set<Integer> correctedMonths = monthBox.getValue();
+
+            Set<Integer> monthToDelete = originMonth.stream()
+                            .filter(f -> !correctedMonths.contains(f)).collect(Collectors.toSet());
+            System.out.println(monthToDelete);
+
+            if (!monthToDelete.isEmpty())
+                paymentService.deleteDB(student.getID(), monthToDelete);
+
+
+            showNotification("Updated months for " + student.getName() + " " + student.getFirstName()
+                    + ": " + correctedMonths, VaadinIcon.CHECK, NotificationVariant.SUCCESS);
+            loadPaymentFromDB();
+            upDateGrid();
+
+            dialog.close();
+        });
+        confirm.addClassName("validate-btn");
+
+        HorizontalLayout buttons = new HorizontalLayout(cancel, confirm);
+        dialog.getFooter().add(buttons);
+
+        dialog.open();
+    }
+
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent)

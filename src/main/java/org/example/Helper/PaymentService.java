@@ -1,7 +1,14 @@
 package org.example.Helper;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Date;
+
 import java.time.LocalDate;
+
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,35 +42,12 @@ public class PaymentService
     }
 
 
-    public boolean hasPaid(int studentID, int month, int year) {
-
-        try (PreparedStatement ps = con.prepareStatement("""
-                SELECT status
-                FROM payment
-                WHERE student_id = ? AND
-                    paid_month = ? AND
-                    paid_year = ?;
-            """))
-        {
-            ps.setInt(1, studentID);
-            ps.setInt(2, month);
-            ps.setInt(3, year);
-
-            ResultSet rs = ps.executeQuery();
-            if (rs.next())
-                return "PAID".equalsIgnoreCase(rs.getString("status"));
-
-            return false;
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
     public Map<Integer, Set<Integer>> getAllPaymentsForYear(int year)
     {
         Map<Integer, Set<Integer>> payments = new HashMap<>();
         try (PreparedStatement ps = con.prepareStatement(
-                "SELECT student_id, paid_month FROM payment WHERE paid_year = ? AND status = 'PAID'")) {
+                "SELECT student_id, paid_month FROM payment WHERE paid_year = ? AND status = 'PAID'"))
+        {
             ps.setInt(1, year);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -74,8 +58,27 @@ public class PaymentService
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return payments;
+        return (payments);
     }
+
+    public void deleteDB(int student_id, Set<Integer> paid_monthToDelete)
+    {
+        String sql = "DELETE FROM payment WHERE student_id = ? AND paid_month = ?";
+
+        try (PreparedStatement ps = con.prepareStatement(sql))
+        {
+            for (Integer month : paid_monthToDelete)
+            {
+                ps.setInt(1, student_id);
+                ps.setInt(2, month);
+                ps.executeUpdate();
+            }
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
 
 
 }
