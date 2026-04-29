@@ -48,14 +48,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.TextStyle;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Collections;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -254,11 +247,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
 
         mappingLevel = Map.of(
+                "TOUS", new String[]{null, null},
                 "L1", new String[]{"L1", null},
                 "L2", new String[]{"L2", null},
                 "L3", new String[]{"L3", null},
-                "M1 INT", new String[]{"M1, Innovation et Technologie"},
-                "M1 MISA", new String[]{"M1, Mathematiques Informatique et Statistiques Appliquees"},
+                "M1 INT", new String[]{"M1", "Innovation et Technologie"},
+                "M1 MISA", new String[]{"M1", "Mathematiques Informatique et Statistiques Appliquees"},
                 "M2", new String[]{"M2", null}
 
         );
@@ -282,7 +276,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         String f = "%" + filter[0].toLowerCase() + "%";
 
                         Set<String> selected = levelSelect.getValue();
-                        List<String> dbLevels = new ArrayList<>();
+                        List<String[]> dbFilters = new ArrayList<>();
 
                         if (!selected.contains("TOUS"))
                         {
@@ -292,16 +286,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                                 if (mapped != null)
                                 {
-                                    for (String m : mapped)
-                                    {
-                                        if (m != null)
-                                            dbLevels.add(m);
-                                    }
+                                    dbFilters.add(mapped);
                                 }
                             }
                         }
 
-                        StringBuilder sql = getStringBuilder(dbLevels);
+                        StringBuilder sql = getStringBuilder(dbFilters);
 
                         Map<Integer, StudentsPayment> map = new HashMap<>();
 
@@ -313,8 +303,24 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                             ps.setString(index++, f);
                             ps.setString(index++, f);
 
-                            for (String lvl : dbLevels)
-                                ps.setString(index++, lvl);
+
+                            if (!selected.isEmpty() && !selected.contains("TOUS"))
+                            {
+                                for (String levelKey : selected)
+                                {
+                                    String[] map2 = mappingLevel.get(levelKey);
+
+                                    if (map2 == null) continue;
+
+                                    String lvl = map2[0];
+                                    String parcours = map2[1];
+
+                                    ps.setString(index++, lvl);
+
+                                    if (parcours != null)
+                                        ps.setString(index++, parcours);
+                                }
+                            }
 
                             ps.setInt(index++, query.getLimit());
                             ps.setInt(index++, query.getOffset());
@@ -366,25 +372,22 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                         String f = "%" + filter[0].toLowerCase() + "%";
 
                         Set<String> selected = levelSelect.getValue();
-                        List<String> dbLevels = new ArrayList<>();
+                        List<String[]> dbFilters = new ArrayList<>();
 
-                        if (!selected.contains("TOUS")) {
-                            for (String lvl : selected) {
+                        if (!selected.contains("TOUS"))
+                        {
+                            for (String lvl : selected)
+                            {
                                 String[] mapped = mappingLevel.get(lvl);
 
                                 if (mapped != null)
                                 {
-                                    for (String m : mapped)
-                                    {
-                                        if (m != null)
-                                            dbLevels.add(m);
-
-                                    }
+                                    dbFilters.add(mapped);
                                 }
                             }
                         }
 
-                        StringBuilder countSql = getBuilder(dbLevels);
+                        StringBuilder countSql = getBuilder(dbFilters);
 
                         try (PreparedStatement ps = con.prepareStatement(countSql.toString()))
                         {
@@ -395,8 +398,22 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                             ps.setString(index++, f);
                             ps.setString(index++, f);
 
-                            for (String lvl : dbLevels) {
-                                ps.setString(index++, lvl);
+                            if (!selected.isEmpty() && !selected.contains("TOUS"))
+                            {
+                                for (String levelKey : selected)
+                                {
+                                    String[] map2 = mappingLevel.get(levelKey);
+
+                                    if (map2 == null) continue;
+
+                                    String lvl = map2[0];
+                                    String parcours = map2[1];
+
+                                    ps.setString(index++, lvl);
+
+                                    if (parcours != null)
+                                        ps.setString(index++, parcours);
+                                }
                             }
 
                             ResultSet rs = ps.executeQuery();
@@ -466,7 +483,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     }
 
-    private static StringBuilder getBuilder(List<String> dbLevels)
+    private static StringBuilder getBuilder(List<String[]> dbFilters)
     {
         StringBuilder countSql = new StringBuilder(
                 """
@@ -477,21 +494,34 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                                 OR LOWER(u.inscription_number) LIKE ?)
                         """);
 
-        if (!dbLevels.isEmpty())
+        if (!dbFilters.isEmpty())
         {
-            countSql.append(" AND u.level IN (");
-            for (int i = 0; i < dbLevels.size(); i++)
+            countSql.append(" AND (");
+
+            for (int i = 0; i < dbFilters.size(); i++)
             {
-                countSql.append("?");
-                if (i < dbLevels.size() - 1)
-                    countSql.append(", ");
+                String[] f = dbFilters.get(i);
+
+                String lvl = f[0];
+                String parcours = f[1];
+
+                countSql.append("(u.level = ?");
+
+                if (parcours != null)
+                    countSql.append(" AND u.parcours = ?");
+
+                countSql.append(")");
+
+                if (i < dbFilters.size() - 1)
+                    countSql.append(" OR ");
             }
+
             countSql.append(")");
         }
         return (countSql);
     }
 
-    private StringBuilder getStringBuilder(List<String> selectedLevels)
+    private StringBuilder getStringBuilder(List<String[]> selectedLevels)
     {
         StringBuilder sql = new StringBuilder(
                 """
@@ -509,8 +539,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
             for (int i = 0; i < selectedLevels.size(); i++)
             {
-                String levelKey = selectedLevels.get(i);
-                String[] map = mappingLevel.get(levelKey);
+                String[] map = selectedLevels.get(i);
                 String lvl = map[0];
                 String parcours = map[1];
 

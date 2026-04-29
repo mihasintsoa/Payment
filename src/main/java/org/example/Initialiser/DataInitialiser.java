@@ -25,6 +25,7 @@ public class DataInitialiser implements ServletContextListener
     public static String user = "sa";
     public static String pwd = "";
 
+
     @Override
     public void contextInitialized(ServletContextEvent sc)
     {
@@ -47,6 +48,7 @@ public class DataInitialiser implements ServletContextListener
                     
                     """);
 
+
             statement.execute("""
                         create table if not exists payment(
                             id int primary key auto_increment,
@@ -58,7 +60,6 @@ public class DataInitialiser implements ServletContextListener
                         );
                     
                     """);
-
 
             InputStream is = getClass().getClassLoader().getResourceAsStream("users_full.csv");
             if (is == null)
@@ -72,7 +73,6 @@ public class DataInitialiser implements ServletContextListener
 
             LoadCSV.loadFromPayment(is, con);
 
-            //con.commit();
             con.close();
 
         }catch (SQLException | IOException e)
