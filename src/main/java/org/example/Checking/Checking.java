@@ -306,14 +306,10 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                             if (!selected.isEmpty() && !selected.contains("TOUS"))
                             {
-                                for (String levelKey : selected)
+                                for (String[] filter : dbFilters)
                                 {
-                                    String[] map2 = mappingLevel.get(levelKey);
-
-                                    if (map2 == null) continue;
-
-                                    String lvl = map2[0];
-                                    String parcours = map2[1];
+                                    String lvl = filter[0];
+                                    String parcours = filter[1];
 
                                     ps.setString(index++, lvl);
 
