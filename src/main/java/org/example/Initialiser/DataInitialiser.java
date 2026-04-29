@@ -59,6 +59,7 @@ public class DataInitialiser implements ServletContextListener
                     
                     """);
 
+
             InputStream is = getClass().getClassLoader().getResourceAsStream("users_full.csv");
             if (is == null)
                 throw new FileNotFoundException("Could not find users_full.csv in resources folder");
@@ -71,7 +72,7 @@ public class DataInitialiser implements ServletContextListener
 
             LoadCSV.loadFromPayment(is, con);
 
-            con.commit();
+            //con.commit();
             con.close();
 
         }catch (SQLException | IOException e)
