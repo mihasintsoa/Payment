@@ -392,7 +392,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
                             ps.setString(index++, f);
                             ps.setString(index++, f);
-                            ps.setString(index++, f);
 
                             if (!selected.isEmpty() && !selected.contains("TOUS"))
                             {
@@ -486,8 +485,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                             SELECT COUNT(*)
                             FROM users_full u
                             WHERE (LOWER(u.name) LIKE ?
-                                OR LOWER(u.firstname) LIKE ?
-                                OR LOWER(u.inscription_number) LIKE ?)
+                                OR LOWER(u.firstname) LIKE ?)
                         """);
 
         if (!dbFilters.isEmpty())
@@ -795,6 +793,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     {
         Button edit = new Button("Edit", VaadinIcon.EDIT.create());
         edit.setEnabled(isAdmin);
+        edit.addClassName("edit-btn");
 
         edit.addClickListener(event ->
         {

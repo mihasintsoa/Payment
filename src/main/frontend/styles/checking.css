@@ -270,3 +270,27 @@ vaadin-upload > vaadin-button:hover
 {
     color: white;
 }
+
+.edit-btn {
+    background-color: #005fb8 !important; /* strong blue */
+    color: white !important;
+    font-family: 'Outfit', sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.edit-btn::part(label) {
+    color: white;
+}
+
+.edit-btn:hover {
+    background-color: #004a91 !important; /* darker blue on hover */
+    transform: scale(1.03); /* subtle hover lift */
+}
+
+.edit-btn:active {
+    background-color: #003a73 !important; /* pressed state */
+    transform: scale(0.98);
+}
