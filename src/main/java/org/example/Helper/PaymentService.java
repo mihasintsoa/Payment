@@ -79,6 +79,32 @@ public class PaymentService
         }
     }
 
+    public Integer findStudentIdByName(String name, String firstname) throws SQLException
+    {
+        String sql =
+        """
+            SELECT id
+            FROM users_full
+            WHERE LOWER(name) = ?
+            AND LOWER(firstname) = ?
+        """;
+
+        try (PreparedStatement ps = con.prepareStatement(sql))
+        {
+            ps.setString(1, name.toLowerCase().trim());
+            ps.setString(2, firstname.toLowerCase().trim());
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next())
+            {
+                return rs.getInt("id");
+            }
+        }
+
+        return null;
+    }
+
 
 
 }

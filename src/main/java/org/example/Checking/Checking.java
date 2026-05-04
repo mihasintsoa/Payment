@@ -61,10 +61,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 {
 
     /**
-     * Temporary list of students from the last DataProvider fetch (current page only).
-     * WARNING: gets overwritten on every scroll/refresh — only reliable immediately
-     * after a fetch. Used exclusively by {@code CSVMeth.applyCsv} during CSV import,
-     * which is triggered manually and runs right after a fetch cycle.
+     * Temporary list of students used ONLY for Grid display (DataProvider pagination).
+     * This list reflects the current fetched page from the Vaadin Grid and is
+     * not guaranteed to contain all students in the database.
+     * IMPORTANT:
+     * This data must NOT be used for backend processing or business logic
+     * (e.g. CSV imports, payments updates). It is strictly for UI rendering.
      */
     public List<StudentsPayment> studentsPaymentList;
 
@@ -469,12 +471,16 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         add(hor);
         add(grid);
 
-        HorizontalLayout hor2 = new HorizontalLayout(edit, validate(modifications, paymentService), yearSelect, uploadCSV);
-        hor2.setAlignItems(Alignment.CENTER);
-        hor2.setJustifyContentMode(JustifyContentMode.CENTER);
-        hor2.setWidthFull();
+        if (isAdmin)
+        {
+            HorizontalLayout hor2 = new HorizontalLayout(edit, validate(modifications, paymentService), yearSelect, uploadCSV);
+            hor2.setAlignItems(Alignment.CENTER);
+            hor2.setJustifyContentMode(JustifyContentMode.CENTER);
+            hor2.setWidthFull();
 
-        add(hor2);
+            add(hor2);
+        }
+
 
     }
 
@@ -575,6 +581,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         return (validerBtn);
     }
 
+    /**
+     * Displays a confirmation dialog before applying pending payment modifications.
+     *
+     * This dialog summarizes all changes made by the user and requires explicit
+     * confirmation before updating the database.
+     *
+     * Once confirmed, all modifications are persisted and the grid is refreshed.
+     * This step ensures that payment updates are intentional and auditable.
+     */
     private void openConfirmationDialog(Map<Integer, Map<Integer, Boolean>> modifications, PaymentService paymentService)
     {
         Dialog dialog = new Dialog();
@@ -640,7 +655,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 loadPaymentFromDB();
                 grid.getDataProvider().refreshAll();
 
-                // Dynamic success message
                 String successMsg = (totalChanges > 1)
                         ? String.format("%d paiements enregistrés avec succès !", totalChanges)
                         : "Le paiement a été enregistré avec succès !";
@@ -668,6 +682,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
+    /**
+     * Loads all payment data for the currently selected academic year
+     * from the database into memory.
+     *
+     * This data is used as the source of truth for rendering payment status
+     * in the grid.
+     */
     private void loadPaymentFromDB()
     {
         allPayments = paymentService.getAllPaymentsForYear(yearSelect.getValue());
@@ -687,6 +708,18 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         notification.open();
     }
 
+    /**
+     * Rebuilds the student payment grid dynamically.
+     *
+     * Columns are generated based on the current date,
+     * showing only the relevant months.
+     *
+     * Each month column contains a checkbox representing payment status,
+     * with business rules applied (admin permissions, already-paid constraints,
+     * and modification tracking).
+     *
+     * This method is called whenever the year changes or the grid needs refresh.
+     */
     private void upDateGrid()
     {
         grid.removeAllColumns();
@@ -756,6 +789,17 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     }
 
+    /**
+     * Creates the CSV upload component used by administrators to import payment data.
+     *
+     * When a file is uploaded, it is parsed into CSV rows and temporarily stored.
+     * The actual database update is NOT executed immediately.
+     *
+     * Instead, a dialog is opened to allow the user to select the target month
+     * before applying the imported payments.
+     *
+     * This ensures that CSV imports remain controlled and reversible before confirmation.
+     */
     private Upload createCsvUpload(PaymentService paymentService)
     {
         Upload upload = new Upload(UploadHandler.inMemory((metadata, bytes) ->
@@ -764,16 +808,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             {
                 List<CSVRow> rows = CSVMeth.parseCSV(inputStream);
 
-                CSVMeth.applyCsv(rows, paymentService, studentsPaymentList);
-
-                showNotification(
-                        "Import CSV terminé",
-                        VaadinIcon.CHECK_CIRCLE_O,
-                        NotificationVariant.LUMO_SUCCESS
-                );
-
-                loadPaymentFromDB();
-                grid.getDataProvider().refreshAll();
+                getUI().ifPresent(ui -> ui.access(() -> openCsvDialog(rows)));
 
             } catch (Exception e)
             {
@@ -850,6 +885,75 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
+    /**
+     * Opens a confirmation dialog after a CSV file has been uploaded.
+     *
+     * This dialog allows the user to select the month to which the CSV data
+     * should be applied, preventing incorrect automatic assignment.
+     *
+     * Once confirmed, the CSV data is processed and persisted into the database
+     * as payment records for the selected period.
+     */
+    private void openCsvDialog(List<CSVRow> rows)
+    {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Choisir le mois d'application");
+
+        Select<Integer> monthSelect = new Select<>();
+        monthSelect.setLabel("Mois");
+
+        monthSelect.setItems(IntStream.rangeClosed(1, currentMonth).boxed().toList());
+
+        int defaultMonth = (today.getDayOfMonth() < 18)
+                ? Math.max(1, currentMonth - 1)
+                : currentMonth;
+
+        monthSelect.setValue(defaultMonth);
+
+        Span info = new Span("L'import va être appliqué à ce mois.");
+
+        Button cancel = new Button("Annuler", e -> dialog.close());
+
+        Button confirm = new Button("Confirmer", e ->
+        {
+            try
+            {
+                int selectedMonth = monthSelect.getValue();
+
+                CSVMeth.applyCsv(
+                        rows,
+                        paymentService,
+                        selectedMonth
+                );
+
+                showNotification(
+                        "Import CSV terminé",
+                        VaadinIcon.CHECK_CIRCLE_O,
+                        NotificationVariant.LUMO_SUCCESS
+                );
+
+                loadPaymentFromDB();
+                grid.getDataProvider().refreshAll();
+
+            } catch (Exception ex)
+            {
+                showNotification(
+                        "Erreur lors de l'application",
+                        VaadinIcon.CLOSE_CIRCLE_O,
+                        NotificationVariant.LUMO_ERROR
+                );
+            }
+
+            dialog.close();
+        });
+
+        confirm.addClassName("validate-btn");
+
+        dialog.add(info, monthSelect);
+        dialog.getFooter().add(cancel, confirm);
+        dialog.open();
+    }
+
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent)
@@ -857,6 +961,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
         this.currentYear = today.getYear();
         this.currentMonth = today.getMonthValue();
+        System.out.println(today.getDayOfMonth());
         this.today = LocalDate.now();
 
         loadPaymentFromDB();

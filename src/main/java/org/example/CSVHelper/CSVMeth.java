@@ -1,7 +1,6 @@
 package org.example.CSVHelper;
 
 import org.example.Helper.PaymentService;
-import org.example.Helper.StudentsPayment;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -10,9 +9,7 @@ import java.io.InputStreamReader;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class CSVMeth
 {
@@ -43,39 +40,42 @@ public class CSVMeth
         return (csvRowList);
     }
 
-    public static void applyCsv(List<CSVRow> rows, PaymentService paymentService, List<StudentsPayment> studentsPaymentList) throws SQLException
+    public static void applyCsv(List<CSVRow> rows, PaymentService paymentService, int month) throws SQLException
     {
 
-        Map<String, StudentsPayment> index = new HashMap<>();
-
-        for (StudentsPayment sp : studentsPaymentList)
-        {
-            String key = (sp.getName().toLowerCase().trim() + "_" + sp.getFirstName()).toLowerCase().trim();
-            index.put(key, sp);
-        }
-
-        int currentMonth = LocalDate.now().getMonthValue();
         int currentYear = LocalDate.now().getYear();
 
         for (CSVRow row : rows)
         {
 
-            String key = row.getName().toLowerCase().trim() + "_" + row.getFirstName().toLowerCase().trim();
+            String name = row.getName().toLowerCase().trim();
+            String firstName = row.getFirstName().toLowerCase().trim();
 
-            StudentsPayment student = index.get(key);
+            Integer id = paymentService.findStudentIdByName(name, firstName);
 
-            if (student == null) continue; // no match
+            if (id == null) continue; // no match
 
-            if (row.getStatus().trim().equals("paid"))
+            if (isPaid(row.getStatus()))
             {
 
                 paymentService.updatePaymentDB(
-                        student.getID(),
+                        id,
                         currentYear,
-                        currentMonth,
+                        month,
                         LocalDate.now()
                 );
             }
         }
+    }
+
+    private static boolean isPaid(String status)
+    {
+        if (status == null) return false;
+
+        return switch (status.trim().toLowerCase())
+        {
+            case "paid", "payé", "paye", "yes", "oui" -> true;
+            default -> false;
+        };
     }
 }
