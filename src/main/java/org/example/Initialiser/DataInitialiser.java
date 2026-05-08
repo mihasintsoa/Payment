@@ -61,6 +61,19 @@ public class DataInitialiser implements ServletContextListener
                     
                     """);
 
+            statement.execute("""
+                        create table if not exists prom(
+                            id int primary key auto_increment,
+                            L1 boolean,
+                            L2 boolean,
+                            L3 boolean,
+                            M1_MISA boolean,
+                            M1_INT boolean,
+                            M2 boolean
+                        );
+                    """
+            );
+
             InputStream is = getClass().getClassLoader().getResourceAsStream("users_full.csv");
             if (is == null)
                 throw new FileNotFoundException("Could not find users_full.csv in resources folder");
@@ -72,6 +85,8 @@ public class DataInitialiser implements ServletContextListener
                 throw new FileNotFoundException("Could not find users_full.csv in resources folder");
 
             LoadCSV.loadFromPayment(is, con);
+
+            LoadCSV.addDefaultDataProm(con);
 
             con.close();
 

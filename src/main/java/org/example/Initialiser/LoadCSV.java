@@ -123,6 +123,36 @@ public class LoadCSV
         }
     }
 
+    public static void addDefaultDataProm(Connection con) throws SQLException
+    {
+        if (tableHasData(con, "prom")) return;
+
+        String insertSQL =
+                """
+                    INSERT INTO prom(
+                        L1,
+                        L2,
+                        L3,
+                        M1_MISA,
+                        M1_INT,
+                        M2)
+                    VALUES(?, ? ,? ,?, ?,?)
+                """;
+
+        try (PreparedStatement ps = con.prepareStatement(insertSQL);)
+        {
+
+            for (int i = 1; i <= 6; i++ )
+                ps.setBoolean(i, true);
+
+            ps.addBatch();
+            ps.executeBatch();
+            con.commit();
+
+        }
+
+    }
+
     private static boolean tableHasData(Connection conn, String tableName) throws SQLException
     {
         try (Statement stmt = conn.createStatement();

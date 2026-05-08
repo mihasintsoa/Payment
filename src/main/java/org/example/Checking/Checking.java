@@ -1,11 +1,15 @@
 package org.example.Checking;
 
+import com.vaadin.flow.component.badge.Badge;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.html.NativeLabel;
+
 
 
 import com.vaadin.flow.component.dependency.CssImport;
@@ -21,6 +25,7 @@ import com.vaadin.flow.component.upload.Upload;
 
 import com.vaadin.flow.data.provider.DataProvider;
 import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -101,6 +106,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
 
     /**
+     * This is a variable that we use to hold the status of each level
+     * There are two status: active and inactive.
+     * The status say whether the corresponding level is blocked or not
+     * from accessing Internet or not
+     * */
+    Map<String, Boolean> levelStatus ;
+
+
+    /**
      * List of available academic years shown in the year selector.
      * Currently only contains the start year (2026), but structured
      * as a list to allow future expansion.
@@ -119,8 +133,6 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
      * Changing this triggers a data refresh.
      */
     MultiSelectComboBox<String> levelSelect;
-
-
 
     /**
      * Main data grid displaying students and their monthly payment checkboxes.
@@ -259,6 +271,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
         );
 
+        levelStatus = new HashMap<>();
 
         try {
             Connection con = DriverManager.getConnection(
@@ -460,12 +473,36 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
             grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
             grid.getStyle().set("overflow-x", "auto");
 
+            try (PreparedStatement ps = con.prepareStatement("SELECT * FROM prom LIMIT 1"))
+            {
+                ResultSet rs = ps.executeQuery();
+                if (rs.next())
+                {
+                    levelStatus.put("L1", rs.getBoolean("L1"));
+                    levelStatus.put("L2", rs.getBoolean("L2"));
+                    levelStatus.put("L3", rs.getBoolean("L3"));
+                    levelStatus.put("M1 MISA", rs.getBoolean("M1_MISA"));
+                    levelStatus.put("M1 INT", rs.getBoolean("M1_INT"));
+                    levelStatus.put("M2", rs.getBoolean("M2"));
+                }
+            }
+
 
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
 
         edit = editBtn();
+
+        levelSelect.setRenderer(new ComponentRenderer<>(item -> {
+            boolean active = levelStatus.getOrDefault(item, true);
+            Badge badge = new Badge(item, (active) ? VaadinIcon.CHECK.create() : VaadinIcon.CLOSE_SMALL.create());
+            badge.addThemeVariants((active) ? BadgeVariant.SUCCESS : BadgeVariant.ERROR);
+
+            return (badge);
+        }));
+
+
 
         hor.add(searchField, levelSelect);
         add(hor);
@@ -722,6 +759,9 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
      */
     private void upDateGrid()
     {
+        int i = 0;
+        int tempI = 1;
+
         grid.removeAllColumns();
 
         today = LocalDate.now();
@@ -735,8 +775,12 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         grid.addColumn(StudentsPayment::getName).setHeader("Nom").setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(StudentsPayment::getFirstName).setHeader("Prénom").setAutoWidth(true).setFlexGrow(1);
 
-        for (int i = 1; i <= monthsToShow; i++)
+        if (selectYear == 2026)
+            tempI += 2;
+
+        for (i = tempI; i <= monthsToShow; i++)
         {
+
             final int month = i;
             String moisNom = Month.of(month).getDisplayName(TextStyle.FULL, Locale.FRENCH);
 

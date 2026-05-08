@@ -13,6 +13,7 @@ import '@vaadin/button/src/vaadin-button.js';
 import '@vaadin/app-layout/src/vaadin-drawer-toggle.js';
 import '@vaadin/avatar/src/vaadin-avatar.js';
 import '@vaadin/avatar-group/src/vaadin-avatar-group.js';
+import '@vaadin/badge/src/vaadin-badge.js';
 import '@vaadin/card/src/vaadin-card.js';
 import '@vaadin/checkbox/src/vaadin-checkbox.js';
 import '@vaadin/checkbox-group/src/vaadin-checkbox-group.js';
