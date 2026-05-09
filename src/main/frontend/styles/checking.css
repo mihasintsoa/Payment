@@ -271,8 +271,9 @@ vaadin-upload > vaadin-button:hover
     color: white;
 }
 
-.edit-btn {
-    background-color: #005fb8 !important; /* strong blue */
+.edit-btn
+{
+    background-color: #005fb8 !important;
     color: white !important;
     font-family: 'Outfit', sans-serif;
     border-radius: 8px;
@@ -281,16 +282,55 @@ vaadin-upload > vaadin-button:hover
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.edit-btn::part(label) {
+.edit-btn::part(label)
+{
     color: white;
 }
 
-.edit-btn:hover {
-    background-color: #004a91 !important; /* darker blue on hover */
-    transform: scale(1.03); /* subtle hover lift */
+.edit-btn:hover
+{
+    background-color: #004a91 !important;
+    transform: scale(1.03);
 }
 
 .edit-btn:active {
-    background-color: #003a73 !important; /* pressed state */
+    background-color: #003a73 !important;
     transform: scale(0.98);
+}
+
+.manage-level-btn
+{
+    background-color: #455a64 !important;
+    color: white !important;
+    font-family: 'Outfit', sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.manage-level-btn::part(label)
+{
+    color: white;
+}
+
+.manage-level-btn:hover
+{
+    background-color: #37474f !important;
+    box-shadow: 0 4px 8px rgba(69, 90, 100, 0.2);
+    transform: translateY(-1px);
+}
+
+.manage-level-btn:active
+{
+    background-color: #263238 !important;
+    transform: translateY(0);
+}
+
+.manage-level-btn vaadin-icon
+{
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
 }

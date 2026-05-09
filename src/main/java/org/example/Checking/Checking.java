@@ -1,5 +1,6 @@
 package org.example.Checking;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.badge.Badge;
 import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.button.Button;
@@ -38,6 +39,7 @@ import org.example.CSVHelper.CSVRow;
 import org.example.Helper.*;
 import org.example.Initialiser.DataInitialiser;
 
+import org.example.Layout.CheckingLayout;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -58,7 +60,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
-@Route("checking")
+@Route(value = "checking", layout = CheckingLayout.class)
 @CssImport("./styles/checking.css")
 @PageTitle("List&Check")
 @PermitAll
@@ -218,6 +220,17 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
      * To edit the error given by the uploadCSV
      * */
     Button edit;
+
+    /**
+     * Used to validate manually which student have paid
+     * without using the uploadCSV
+     * */
+    Button validateBtn;
+
+    /**
+     * To block an entire level
+     */
+    Button manageLevelStatus;
 
 
     public Checking()
@@ -487,12 +500,15 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                 }
             }
 
+            manageLevelStatus = manageLevelsButton(con);
+
 
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
 
         edit = editBtn();
+        validateBtn = validate(modifications, paymentService);
 
         levelSelect.setRenderer(new ComponentRenderer<>(item -> {
             boolean active = levelStatus.getOrDefault(item, true);
@@ -503,14 +519,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
         }));
 
 
-
         hor.add(searchField, levelSelect);
         add(hor);
         add(grid);
 
         if (isAdmin)
         {
-            HorizontalLayout hor2 = new HorizontalLayout(edit, validate(modifications, paymentService), yearSelect, uploadCSV);
+            HorizontalLayout hor2 = new HorizontalLayout(edit, validateBtn, yearSelect, uploadCSV, manageLevelStatus);
             hor2.setAlignItems(Alignment.CENTER);
             hor2.setJustifyContentMode(JustifyContentMode.CENTER);
             hor2.setWidthFull();
@@ -620,10 +635,10 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     /**
      * Displays a confirmation dialog before applying pending payment modifications.
-     *
+
      * This dialog summarizes all changes made by the user and requires explicit
      * confirmation before updating the database.
-     *
+
      * Once confirmed, all modifications are persisted and the grid is refreshed.
      * This step ensures that payment updates are intentional and auditable.
      */
@@ -722,7 +737,7 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
     /**
      * Loads all payment data for the currently selected academic year
      * from the database into memory.
-     *
+
      * This data is used as the source of truth for rendering payment status
      * in the grid.
      */
@@ -747,14 +762,14 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     /**
      * Rebuilds the student payment grid dynamically.
-     *
+
      * Columns are generated based on the current date,
      * showing only the relevant months.
-     *
+
      * Each month column contains a checkbox representing payment status,
      * with business rules applied (admin permissions, already-paid constraints,
      * and modification tracking).
-     *
+
      * This method is called whenever the year changes or the grid needs refresh.
      */
     private void upDateGrid()
@@ -835,13 +850,13 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     /**
      * Creates the CSV upload component used by administrators to import payment data.
-     *
+
      * When a file is uploaded, it is parsed into CSV rows and temporarily stored.
      * The actual database update is NOT executed immediately.
-     *
+
      * Instead, a dialog is opened to allow the user to select the target month
      * before applying the imported payments.
-     *
+
      * This ensures that CSV imports remain controlled and reversible before confirmation.
      */
     private Upload createCsvUpload(PaymentService paymentService)
@@ -883,6 +898,103 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
         return (edit);
     }
+
+    /**
+     * This button allows administrators to manage the activation
+     * status of academic levels directly from the UI.
+
+     * When clicked, it opens a dialog containing one checkbox
+     * for each level (L1, L2, L3, M1 INT, M1 MISA, M2).
+
+     * - Checked = the level is active (students of this level
+     *   are allowed to access the Internet).
+     * - Unchecked = the level is inactive (students of this level
+     *   are blocked from accessing the Internet).
+
+     * The initial state of each checkbox reflects the current
+     * values stored in the database table "prom".
+
+     * When the user clicks "Save":
+     * - The database table "prom" is updated with the new values.
+     * - The local map "levelStatus" is refreshed to match.
+     * - A notification is displayed to confirm the update.
+
+     * This ensures that the UI and the backend remain synchronized,
+     * and that changes to level access policies are immediately
+     * reflected in the system.
+     */
+
+    private Button manageLevelsButton(Connection con)
+    {
+        Button btn = new Button("Gérer les niveaux", VaadinIcon.TOOLS.create());
+        btn.addClassName("manage-level-btn");
+
+        btn.addClickListener(e -> {
+            Dialog dialog = new Dialog();
+            dialog.setHeaderTitle("Activer/Désactiver les niveaux");
+
+            VerticalLayout layout = new VerticalLayout();
+
+            Map<String, Checkbox> checkboxes = new HashMap<>();
+            for (String lvl : selectableLevel) {
+                if (lvl.equals("TOUS")) continue;
+                Checkbox cb = new Checkbox(lvl);
+                cb.setValue(levelStatus.getOrDefault(lvl, true));
+                checkboxes.put(lvl, cb);
+                layout.add(cb);
+            }
+
+            Button saveBtn = new Button("Enregistrer", ev ->
+            {
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE prom SET L1=?, L2=?, L3=?, M1_MISA=?, M1_INT=?, M2=? WHERE id=1"))
+                {
+
+                    ps.setBoolean(1, checkboxes.get("L1").getValue());
+                    ps.setBoolean(2, checkboxes.get("L2").getValue());
+                    ps.setBoolean(3, checkboxes.get("L3").getValue());
+                    ps.setBoolean(4, checkboxes.get("M1 MISA").getValue());
+                    ps.setBoolean(5, checkboxes.get("M1 INT").getValue());
+                    ps.setBoolean(6, checkboxes.get("M2").getValue());
+
+                    ps.executeUpdate();
+
+                    //update the local status
+                    levelStatus.put("L1", checkboxes.get("L1").getValue());
+                    levelStatus.put("L2", checkboxes.get("L2").getValue());
+                    levelStatus.put("L3", checkboxes.get("L3").getValue());
+                    levelStatus.put("M1 MISA", checkboxes.get("M1 MISA").getValue());
+                    levelStatus.put("M1 INT", checkboxes.get("M1 INT").getValue());
+                    levelStatus.put("M2", checkboxes.get("M2").getValue());
+
+                    dialog.close();
+                    showNotification("Niveaux mis à jour !", VaadinIcon.CHECK, NotificationVariant.SUCCESS);
+                } catch (SQLException ex)
+                {
+                    showNotification("Erreur lors de la mise à jour !", VaadinIcon.CLOSE_SMALL, NotificationVariant.ERROR);
+                    ex.printStackTrace();
+                }
+
+                levelSelect.setRenderer(new ComponentRenderer<>(item -> {
+                    boolean active = levelStatus.getOrDefault(item, true);
+                    Badge badge = new Badge(item, (active) ? VaadinIcon.CHECK.create() : VaadinIcon.CLOSE_SMALL.create());
+                    badge.addThemeVariants((active) ? BadgeVariant.SUCCESS : BadgeVariant.ERROR);
+
+                    return (badge);
+                }));
+            });
+            saveBtn.addClassName("validate-btn");
+
+            Button cancelBtn = new Button("Annuler", ev -> dialog.close());
+
+            dialog.add(layout);
+            dialog.getFooter().add(cancelBtn, saveBtn);
+            dialog.open();
+        });
+
+        return (btn);
+    }
+
     private void openEditDialog(StudentsPayment student)
     {
         Dialog dialog = new Dialog();
@@ -931,10 +1043,10 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     /**
      * Opens a confirmation dialog after a CSV file has been uploaded.
-     *
+
      * This dialog allows the user to select the month to which the CSV data
      * should be applied, preventing incorrect automatic assignment.
-     *
+
      * Once confirmed, the CSV data is processed and persisted into the database
      * as payment records for the selected period.
      */
@@ -1010,5 +1122,53 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
         loadPaymentFromDB();
         upDateGrid();
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent)
+    {
+        super.onAttach(attachEvent);
+
+        getUI().ifPresent(ui -> {
+            if (getParent().orElse(null) instanceof CheckingLayout layout)
+            {
+                if (isAdmin)
+                    layout.addToActionDrawer(edit, validateBtn, yearSelect, uploadCSV, manageLevelStatus);
+                else {
+
+                    VerticalLayout guestMessage = new VerticalLayout();
+                    guestMessage.setSpacing(true);
+                    guestMessage.setPadding(true);
+                    guestMessage.setAlignItems(Alignment.CENTER);
+
+
+                    guestMessage.getStyle()
+                            .set("background", "#fff5f6")
+                            .set("border", "1px solid #fce4e7")
+                            .set("border-radius", "12px")
+                            .set("margin", "10px")
+                            .set("font-family", "'Outfit', sans-serif");
+
+                    Span icon = new Span(VaadinIcon.INFO.create());
+                    icon.getStyle().set("color", "#c8102e").set("font-size", "24px");
+
+                    Span text = new Span("Consultation uniquement");
+                    text.getStyle()
+                            .set("color", "#8a1528")
+                            .set("font-weight", "600")
+                            .set("text-align", "center");
+
+                    Span subText = new Span("Aucune action disponible pour votre profil.");
+                    subText.getStyle()
+                            .set("color", "#4a4a4a")
+                            .set("font-size", "12px")
+                            .set("text-align", "center");
+
+                    guestMessage.add(icon, text, subText);
+
+                    layout.addToActionDrawer(guestMessage);
+                }
+            }
+        });
     }
 }
