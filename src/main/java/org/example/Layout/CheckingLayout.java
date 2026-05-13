@@ -9,6 +9,7 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import jakarta.annotation.security.PermitAll;
 
 @PermitAll
@@ -38,6 +39,10 @@ public class CheckingLayout extends AppLayout
 
     public void addToActionDrawer(Component... component)
     {
-        addToDrawer(component);
+        VerticalLayout h = new VerticalLayout();
+        h.setAlignItems(FlexComponent.Alignment.CENTER);
+        h.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+        h.add(component);
+        addToDrawer(h);
     }
 }
