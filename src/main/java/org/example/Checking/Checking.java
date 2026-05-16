@@ -386,8 +386,8 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
                             throw new RuntimeException(e);
                         }
 
-                        studentsPaymentList = new ArrayList<>(map.values());
-                        return studentsPaymentList.stream();
+                        //studentsPaymentList = new ArrayList<>(map.values());
+                        return map.values().stream();
                     },
 
                     query ->
@@ -575,41 +575,43 @@ public class Checking extends VerticalLayout implements BeforeEnterObserver
 
     private StringBuilder getStringBuilder(List<String[]> selectedLevels)
     {
-        StringBuilder sql = new StringBuilder(
+        StringBuilder inner = new StringBuilder(
                 """
-                        SELECT u.id, u.name, u.firstname, u.level, u.parcours,
-                               p.paid_month, p.paid_year, p.payment_date, p.status
-                        FROM users_full u
-                        LEFT JOIN payment p ON u.id = p.student_id
-                        WHERE (LOWER(u.name) LIKE ? OR LOWER(u.firstname) LIKE ?)
-                        """
+                        SELECT id, name, firstname, level, parcours
+                        FROM users_full
+                        WHERE (LOWER(name) LIKE ? OR LOWER(firstname) LIKE ?)
+                """
         );
 
-        if (!selectedLevels.isEmpty() && !selectedLevels.contains("TOUS"))
+        if (!selectedLevels.isEmpty())
         {
-            sql.append(" AND (");
-
+            inner.append(" AND (");
             for (int i = 0; i < selectedLevels.size(); i++)
             {
                 String[] map = selectedLevels.get(i);
-                String lvl = map[0];
-                String parcours = map[1];
+                inner.append("(level = ?");
 
-                sql.append("(u.level = ?");
+                if (map[1] != null)
+                    inner.append(" AND parcours = ?");
 
-                if (parcours != null)
-                    sql.append(" AND u.parcours = ?");
-
-                sql.append(")");
+                inner.append(")");
 
                 if (i < selectedLevels.size() - 1)
-                    sql.append(" OR ");
+                    inner.append(" OR ");
             }
-
-            sql.append(")");
+            inner.append(")");
         }
 
-        sql.append(" ORDER BY u.id ASC LIMIT ? OFFSET ?");
+        inner.append(" ORDER BY id ASC LIMIT ? OFFSET ?");
+
+        StringBuilder sql = new StringBuilder(
+                "SELECT u.id, u.name, u.firstname, u.level, u.parcours, " +
+                        "       p.paid_month, p.paid_year, p.payment_date, p.status " +
+                        "FROM (" + inner + ") u " +
+                        "LEFT JOIN payment p ON u.id = p.student_id " +
+                        "ORDER BY u.id ASC"
+        );
+
         return (sql);
     }
 
